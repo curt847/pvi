@@ -1,0 +1,1197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cisco PVI Planner</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js">
+// ── PEAK PVI SCORES ──────────────────────────────────────────────────────────
+function getBestMonth(portfolio){
+  var best={pvi:-1,month:''};
+  months.forEach(function(m){
+    var pvi=calcPVI(portfolio,m,false);
+    if(pvi>best.pvi){best.pvi=pvi;best.month=m;}
+  });
+  return best;
+}
+
+function renderPeakCard(){
+  var card=document.getElementById('peak-card');
+  if(!card)return;
+  var archs=PORTFOLIOS.filter(function(p){return allRows.some(function(r){return r.portfolio===p.key;});});
+  if(!archs.length){card.innerHTML='<div class="peak-title">All-Time Peak</div>';return;}
+
+  var html='<div class="peak-title">All-Time Peak PVI</div>';
+  html+=archs.map(function(p){
+    var a=calcPVI(p.key,selectedMonth,false),w=calcPVI(p.key,selectedMonth,true);
+    var mod=isMod(p.key,selectedMonth),t=getTier(a),wt=getTier(w),isAct=cur===p.tab;
+    // Always render both scores — opacity:0 hides what-if when inactive (height stays fixed)
+    return'<div class="sr-arch" onclick="switchTab(\''+p.tab+'\')" style="'+(isAct?'background:rgba(255,255,255,.05)':'')+'">' +
+      '<div class="sr-arch-bot" style="background:'+(isAct?t.color:'transparent')+'"></div>'+
+      '<div class="sr-arch-name">'+p.icon+' '+p.label+'</div>'+
+      '<div style="display:flex;flex-direction:row;flex-wrap:nowrap;align-items:flex-end;gap:10px;justify-content:center">'+
+        '<div style="display:flex;flex-direction:column;align-items:center;gap:1px">'+
+          '<span style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);opacity:'+(mod?'1':'0')+'">CURRENT</span>'+
+          '<span class="sr-curr" style="color:'+t.color+'">'+pf(a)+'</span>'+
+        '</div>'+
+        '<div style="display:flex;flex-direction:column;align-items:center;gap:1px;opacity:'+(mod?'1':'0')+'">'+
+          '<span style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--amber)">WHAT-IF</span>'+
+          '<span style="font-family:\'JetBrains Mono\',monospace;font-size:26px;font-weight:800;color:var(--amber);line-height:1">'+pf(w)+'</span>'+
+        '</div>'+
+      '</div>'+
+      '<div style="display:flex;flex-direction:row;flex-wrap:nowrap;align-items:center;gap:3px;justify-content:center">'+
+        '<span class="sr-tier" style="color:'+t.color+'">'+t.label+'</span>'+
+        (mod&&wt.key!==t.key?'<span style="color:var(--muted);font-size:9px">→</span><span class="sr-tier" style="color:'+wt.color+'">'+wt.label+'</span>':'')+
+      '</div>'+
+    '</div>';
+  }).join('');
+  card.innerHTML=html;
+}
+
+</script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#070b12;--bg2:#0d1520;--bg3:#131d30;--bg4:#192540;
+  --border:#1f2e48;--border2:#293d5e;
+  --text:#dde7f8;--muted:#6270a0;
+  --blue:#049fd9;--blue2:#00cfff;
+  --amber:#f59e0b;--amber2:#fbbf24;
+  --green:#22c55e;--red:#ef4444;--orange:#fb923c;--gold:#fbbf24;
+  /* TIER COLORS: New=grey, Basic=blue, Portfolio=GREEN, Preferred=gold */
+  --c-base:#9ca3af;--c-reg:#00cfff;--c-port:#22c55e;--c-pref:#fbbf24;
+  --hdr:62px;--ribbon:96px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;min-height:100vh;}
+
+/* ── HEADER ── */
+.app-header{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;gap:12px;height:var(--hdr);position:sticky;top:0;z-index:400;box-shadow:0 2px 12px rgba(0,0,0,.6);}
+.logo{display:flex;align-items:center;gap:8px;font-size:16px;font-weight:800;color:var(--blue);white-space:nowrap;flex-shrink:0;}
+.hdr-partner{border-left:1px solid var(--border);padding-left:14px;flex-shrink:0;}
+.hdr-name{font-weight:800;font-size:16px;}
+.hdr-meta{font-size:11px;color:var(--muted);}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:nowrap;}
+.mo-wrap{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);white-space:nowrap;}
+.mo-wrap select{background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;padding:5px 9px;outline:none;}
+.sz-wrap{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--muted);white-space:nowrap;}
+.sz-wrap select{background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:12px;padding:5px 7px;outline:none;}
+.wi-banner{background:rgba(245,158,11,.14);border:1px solid rgba(245,158,11,.45);border-radius:6px;padding:4px 11px;font-size:12px;font-weight:700;color:var(--amber);cursor:pointer;white-space:nowrap;}
+.wi-banner.hidden{display:none;}
+.btn{padding:5px 12px;border-radius:6px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;border:none;white-space:nowrap;}
+.btn-blue{background:var(--blue);color:#fff;}
+.btn-ghost{background:var(--bg3);border:1px solid var(--border);color:var(--text);}
+.btn-ghost:hover{border-color:var(--blue);color:var(--blue);}
+.btn-gold{background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.35);color:var(--gold);}
+.btn-gold:hover{background:rgba(251,191,36,.22);}
+.btn-wi{background:rgba(245,158,11,.14);border:1px solid rgba(245,158,11,.45);color:var(--amber);}
+.btn-wi:hover{background:rgba(245,158,11,.24);}
+
+/* ── SCORE RIBBON ── */
+.score-ribbon{background:var(--bg2);border-bottom:2px solid var(--border2);display:flex;flex-direction:row;flex-wrap:nowrap;align-items:stretch;height:90px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;position:sticky;top:var(--hdr);z-index:350;box-shadow:0 3px 16px rgba(0,0,0,.6);}
+
+.score-ribbon.hidden{display:none;}
+.sr-overview{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 20px;border-right:1px solid var(--border);cursor:pointer;gap:2px;flex-shrink:0;min-width:80px;transition:background .15s;}
+.sr-overview:hover,.sr-overview.active{background:rgba(4,159,217,.08);}
+.sr-overview.active{border-bottom:3px solid var(--blue);margin-bottom:-2px;}
+.sr-ov-icon{font-size:20px;}
+.sr-ov-lbl{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);}
+.sr-arch{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px 10px;border-right:1px solid var(--border);cursor:pointer;gap:2px;flex:1 1 0;min-width:110px;position:relative;transition:background .15s;}
+.sr-arch:hover{background:rgba(255,255,255,.03);}
+.sr-arch-bot{position:absolute;bottom:-2px;left:0;right:0;height:3px;}
+.sr-arch-name{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);}
+.sr-curr{font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:800;line-height:1;}
+.sr-wi{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;color:var(--amber);line-height:1;}
+.sr-tier{font-size:12px;font-weight:700;margin-top:1px;}
+.sr-btns{display:flex;align-items:center;gap:6px;padding:0 12px;border-left:1px solid var(--border);flex-shrink:0;}
+
+/* ── CONTENT ── */
+.content{padding:20px 22px;max-width:1600px;margin:0 auto;}
+.tab-panel{display:none;}
+.tab-panel.active{display:block;animation:fadeIn .2s ease;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+
+/* ── UPLOAD ── */
+.upload-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:40px;}
+.upload-card{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:48px 40px;max-width:560px;width:100%;text-align:center;}
+.upload-card h2{font-size:26px;font-weight:800;margin-bottom:10px;}
+.upload-card p{color:var(--muted);font-size:14px;margin-bottom:28px;line-height:1.7;}
+.drop-zone{border:2px dashed var(--border2);border-radius:12px;padding:40px 20px;cursor:pointer;transition:all .2s;background:var(--bg3);margin-bottom:20px;}
+.drop-zone:hover,.drop-zone.drag-over{border-color:var(--blue);background:rgba(4,159,217,.05);}
+.dz-icon{font-size:40px;margin-bottom:12px;}
+.dz-label{font-size:16px;font-weight:700;margin-bottom:5px;}
+.dz-sub{font-size:13px;color:var(--muted);}
+.upload-meta{font-size:11px;color:var(--muted);margin-top:16px;line-height:1.9;}
+.upload-meta code{background:var(--bg4);padding:2px 6px;border-radius:3px;font-family:'JetBrains Mono',monospace;font-size:10px;}
+
+/* ── CARDS ── */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:20px;}
+.card-title{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.9px;color:var(--muted);margin-bottom:16px;display:flex;align-items:center;gap:8px;}
+.card-title::after{content:'';flex:1;height:1px;background:var(--border);}
+.mb-20{margin-bottom:20px;}
+
+/* ── MILESTONE BAR ── */
+.ms-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:20px 22px;margin-bottom:20px;display:flex;flex-direction:column;}
+.ms-title{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.9px;color:var(--muted);margin-bottom:12px;flex-shrink:0;}
+.ms-block{margin-bottom:0px;}
+.ms-block:last-child{margin-bottom:0;}
+.ms-arch-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px;}
+.ms-arch-name{font-size:15px;font-weight:700;}
+.ms-scores{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.ms-curr{font-family:'JetBrains Mono',monospace;font-size:30px;font-weight:800;line-height:1;}
+.ms-wi{font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;color:var(--amber);line-height:1;}
+.ms-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);}
+.ms-delta{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;padding:2px 8px;border-radius:4px;}
+.tier-badge{display:inline-block;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700;border:1px solid;}
+.tb-pref{background:rgba(251,191,36,.12);color:var(--c-pref);border-color:rgba(251,191,36,.3);}
+.tb-port{background:rgba(34,197,94,.1);color:var(--c-port);border-color:rgba(34,197,94,.3);}
+.tb-reg{background:rgba(0,207,255,.1);color:var(--c-reg);border-color:rgba(0,207,255,.25);}
+.tb-base{background:rgba(156,163,175,.1);color:var(--c-base);border-color:rgba(156,163,175,.25);}
+.ms-track{position:relative;height:16px;background:var(--bg3);border-radius:8px;margin-bottom:34px;}
+.ms-fill{position:absolute;left:0;top:0;height:100%;border-radius:8px;transition:width .5s;}
+.ms-fill-wi{position:absolute;left:0;top:0;height:100%;border-radius:8px;background:var(--amber);opacity:.45;transition:width .5s;}
+.ms-marker{position:absolute;top:-3px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;}
+.ms-tick{width:2px;height:22px;border-radius:1px;}
+.ms-mlbl{position:absolute;top:26px;font-size:11px;font-weight:700;white-space:nowrap;transform:translateX(-50%);text-align:center;line-height:1.4;}
+
+/* ── METRIC TABLE ── */
+.metric-table{width:100%;border-collapse:collapse;table-layout:fixed;} .metric-table td:first-child,.metric-table th:first-child{width:42%;max-width:42%;}
+.metric-table th{background:var(--bg3);padding:12px 15px;text-align:left;font-size:14px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap;}
+.metric-table th.r{text-align:right;}
+.metric-table td{padding:13px 15px;border-bottom:1px solid var(--border);vertical-align:top;}
+.metric-table td.r{text-align:right;}
+.metric-table tr:last-child td{border-bottom:none;}
+.metric-table .cat-row td{background:var(--bg3);font-size:15px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--blue2);padding:9px 15px;}
+.metric-table .tot-row td{font-weight:800;font-family:'JetBrains Mono',monospace;font-size:18px;padding:15px;}
+.metric-table .sub-row td{background:rgba(255,255,255,.01);padding:8px 15px;font-size:15px;}
+.metric-table tr:hover:not(.cat-row):not(.tot-row):not(.sub-row) td{background:rgba(255,255,255,.016);}
+.meas-name{font-size:18px;font-weight:700;line-height:1.3;}
+.meas-ctx{font-size:15px;color:var(--muted);margin-top:4px;line-height:1.5;}
+.meas-hint{font-size:14px;color:var(--amber);margin-top:3px;line-height:1.5;min-height:40px;max-width:520px;word-wrap:break-word;}
+.wt-formula{font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--muted);white-space:nowrap;}
+.idx-chip{display:inline-block;padding:6px 16px;border-radius:7px;font-family:'JetBrains Mono',monospace;font-size:24px;font-weight:800;}
+.i0{background:rgba(239,68,68,.12);color:var(--red);}
+.il{background:rgba(251,146,60,.12);color:var(--orange);}
+.im{background:rgba(167,139,250,.15);color:#c4b5fd;}
+.ih{background:rgba(34,197,94,.12);color:var(--green);}
+.ix{background:rgba(0,207,255,.14);color:var(--blue2);}
+.wif-input{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.5);border-radius:8px;color:var(--amber);font-family:'JetBrains Mono',monospace;font-size:24px;font-weight:800;padding:6px 10px;width:84px;text-align:center;outline:none;}
+.wif-input:focus{border-color:var(--amber);background:rgba(245,158,11,.18);}
+.wif-input.unch{background:transparent;border-color:var(--border);color:var(--muted);}
+.wtd-c{font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:700;}
+.wtd-w{font-family:'JetBrains Mono',monospace;font-size:20px;color:var(--amber);font-weight:700;}
+.dchip{font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:700;padding:3px 10px;border-radius:4px;}
+.dp{color:var(--green);background:rgba(34,197,94,.12);}
+.dn{color:var(--red);background:rgba(239,68,68,.12);}
+.d0{color:var(--muted);}
+
+
+.pbar{height:5px;background:var(--border);border-radius:3px;margin-top:8px;width:190px;}
+.pbar-fill{height:100%;border-radius:3px;transition:width .4s;}
+.reset-btn{background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.35);color:var(--amber);border-radius:6px;padding:6px 12px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;}
+.reset-btn:hover{background:rgba(245,158,11,.22);}
+.info-note{background:rgba(4,159,217,.05);border:1px solid rgba(4,159,217,.15);border-radius:8px;padding:11px 15px;font-size:13px;color:var(--muted);line-height:1.6;}
+.info-note strong{color:var(--blue2);}
+.warn-note{background:rgba(245,158,11,.05);border:1px solid rgba(245,158,11,.2);border-radius:8px;padding:11px 15px;font-size:13px;color:var(--muted);line-height:1.6;}
+.warn-note strong{color:var(--amber2);}
+
+/* ── CHART FILTER ── */
+.chart-filter-bar{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px;align-items:center;}
+.cfilter-btn{padding:5px 13px;border-radius:18px;font-size:12px;font-weight:700;cursor:pointer;border:1px solid var(--border);background:var(--bg3);color:var(--muted);transition:all .15s;}
+.cfilter-btn:hover{border-color:var(--blue2);}
+.cfilter-btn.on{color:#000;font-weight:800;}
+
+/* ── REPORT ── */
+.report-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:28px;}
+.rpt-hdr{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px;}
+.rpt-title{font-size:22px;font-weight:800;margin-bottom:4px;}
+.rpt-meta{font-size:13px;color:var(--muted);line-height:1.7;}
+.rpt-actions{display:flex;gap:8px;flex-wrap:wrap;}
+.rpt-sec{margin-bottom:24px;}
+.rpt-sec h3{font-size:16px;font-weight:800;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border);}
+.rpt-table{width:100%;border-collapse:collapse;font-size:14px;}
+.rpt-table th{background:var(--bg3);padding:10px 13px;text-align:left;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);border-bottom:1px solid var(--border);}
+.rpt-table th.r{text-align:right;}
+.rpt-table td{padding:10px 13px;border-bottom:1px solid var(--border);vertical-align:top;font-size:14px;}
+.rpt-table td.r{text-align:right;}
+.rpt-table tr:last-child td{border-bottom:none;}
+.req-item{background:var(--bg3);border-radius:9px;padding:16px 18px;margin-bottom:10px;border:1px solid var(--border);}
+.req-item:last-child{margin-bottom:0;}
+.req-arch{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:5px;}
+.req-meas{font-size:16px;font-weight:700;margin-bottom:5px;}
+.req-change{font-size:14px;margin-bottom:6px;}
+.req-action{font-size:13px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:6px;padding:10px 14px;color:var(--text);line-height:1.6;margin-top:6px;}
+.req-action strong{color:var(--amber2);}
+.bu-item{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);border-radius:8px;padding:14px 16px;margin-bottom:10px;}
+.bu-tier{font-size:15px;font-weight:800;margin-bottom:6px;}
+.bu-list{font-size:14px;color:var(--muted);line-height:1.8;}
+.no-changes{text-align:center;padding:40px;color:var(--muted);font-size:16px;}
+
+/* ── BENEFITS PAGE ── */
+.benefits-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:18px;}
+@media(max-width:800px){.benefits-grid{grid-template-columns:1fr;}}
+.bcard{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:22px;}
+.bcard.t-base{border-left:4px solid var(--c-base);}
+.bcard.t-reg{border-left:4px solid var(--c-reg);}
+.bcard.t-port{border-left:4px solid var(--c-port);}
+.bcard.t-pref{border-left:4px solid var(--c-pref);}
+.bc-hdr{display:flex;align-items:center;gap:14px;margin-bottom:16px;}
+.bc-pvi{font-family:'JetBrains Mono',monospace;font-size:32px;font-weight:800;line-height:1;}
+.bc-name{font-size:17px;font-weight:800;}
+.bc-desc{font-size:12px;color:var(--muted);margin-top:2px;}
+.bc-list{list-style:none;display:flex;flex-direction:column;gap:8px;}
+.bc-list li{display:flex;align-items:flex-start;gap:9px;font-size:15px;line-height:1.5;}
+.bc-list li::before{content:'✓';font-weight:800;flex-shrink:0;margin-top:1px;}
+.bc-note{margin-top:12px;padding:10px 14px;background:var(--bg3);border-radius:8px;font-size:13px;color:var(--muted);line-height:1.6;}
+.t-base .bc-pvi,.t-base .bc-list li::before{color:var(--c-base);}
+.t-reg .bc-pvi,.t-reg .bc-list li::before{color:var(--c-reg);}
+.t-port .bc-pvi,.t-port .bc-list li::before{color:var(--c-port);}
+.t-pref .bc-pvi,.t-pref .bc-list li::before{color:var(--c-pref);}
+
+.ttbl{width:100%;border-collapse:collapse;font-size:14px;}
+.ttbl th{background:var(--bg3);padding:10px 13px;text-align:left;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);border-bottom:1px solid var(--border);}
+.ttbl td{padding:10px 13px;border-bottom:1px solid var(--border);vertical-align:middle;}
+.ttbl tr:last-child td{border-bottom:none;}
+.ttbl .tc{background:var(--bg3);font-weight:800;font-size:14px;color:var(--blue2);}
+.ta{font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:800;color:var(--blue2);}
+.mono{font-family:'JetBrains Mono',monospace;}
+.muted{color:var(--muted);}
+.hidden{display:none;}
+
+@media print{
+  .app-header,.score-ribbon,.chart-filter-bar,.rpt-actions,.reset-btn{display:none!important;}
+  body{background:#fff;color:#000;}
+  .tab-panel{display:none!important;}
+  #tab-report{display:block!important;}
+  .report-wrap,.req-item,.bu-item,.rpt-table th,.rpt-table td{background:#fff!important;color:#000!important;border-color:#ccc!important;}
+}
+
+/* ── PEAK SCORES CARD ── */
+.peak-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:18px 16px;flex-shrink:0;width:220px;}
+.peak-title{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.9px;color:var(--muted);margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+.peak-title::after{content:'';flex:1;height:1px;background:var(--border);}
+.peak-row{padding:10px 0;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:4px;}
+.peak-row:last-child{border-bottom:none;padding-bottom:0;}
+.peak-arch-name{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);}
+.peak-score{font-family:'JetBrains Mono',monospace;font-size:32px;font-weight:800;line-height:1;letter-spacing:-1px;}
+.peak-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.peak-month{font-size:11px;color:var(--muted);font-weight:600;}
+.peak-delta{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;padding:1px 6px;border-radius:3px;}
+.peak-is-current{font-size:10px;color:var(--muted);font-style:italic;}
+
+
+/* ── WIF SELECT DROPDOWN ── */
+.wif-select{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.5);border-radius:8px;
+  color:var(--amber);font-family:'JetBrains Mono',monospace;font-size:24px;font-weight:800;
+  padding:6px 12px;min-width:100px;text-align:center;outline:none;cursor:pointer;
+  appearance:auto;-webkit-appearance:auto;}
+.wif-select:focus{border-color:var(--amber);background:rgba(245,158,11,.18);}
+.wif-select.unch{background:transparent;border-color:var(--border);color:var(--muted);}
+.wif-select option{background:var(--bg3);color:var(--text);font-size:15px;}
+</style>
+</head>
+<body>
+
+<!-- UPLOAD -->
+<div id="upload-screen">
+  <div class="upload-screen">
+    <div class="upload-card">
+      <div style="margin-bottom:14px"><svg width="60" height="37" viewBox="0 0 64 40" fill="none"><rect x="0" y="16" width="8" height="8" rx="2" fill="#049fd9"/><rect x="10" y="8" width="8" height="16" rx="2" fill="#049fd9"/><rect x="20" y="0" width="8" height="24" rx="2" fill="#049fd9"/><rect x="30" y="4" width="8" height="20" rx="2" fill="#049fd9"/><rect x="40" y="0" width="8" height="24" rx="2" fill="#049fd9"/><rect x="50" y="8" width="8" height="16" rx="2" fill="#049fd9"/></svg></div>
+      <h2>Cisco PVI Planner</h2>
+      <p>Upload your <strong style="color:#dde7f8">Partner Assessment DPV</strong> file. Use <strong style="color:#f59e0b">What-If</strong> mode to model improvements, then generate a detailed action plan to share with your partner.</p>
+      <div class="drop-zone" id="drop-zone"><div class="dz-icon">📁</div><div class="dz-label">Drop Partner_Assessment_DPV.xlsx here</div><div class="dz-sub">or click to browse  ·  .xlsx / .xls</div></div>
+      <button class="btn btn-blue" id="browse-btn" style="width:100%;padding:12px;font-size:15px">Browse File</button>
+      <input type="file" id="file-input" accept=".xlsx,.xls" class="hidden">
+      <div class="upload-meta">Required: <code>Portfolio</code> <code>Category</code> <code>Category Weight</code> <code>Measurement</code> <code>Measurement Weight</code> <code>Fiscal Month</code> <code>Achieved Metric</code> <code>Applied Index</code> <code>Measure A Value</code> <code>Measure B Value</code></div>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app-shell" class="hidden">
+  <header class="app-header">
+    <div class="logo"><svg width="28" height="17" viewBox="0 0 64 40" fill="none"><rect x="0" y="16" width="8" height="8" rx="2" fill="#049fd9"/><rect x="10" y="8" width="8" height="16" rx="2" fill="#049fd9"/><rect x="20" y="0" width="8" height="24" rx="2" fill="#049fd9"/><rect x="30" y="4" width="8" height="20" rx="2" fill="#049fd9"/><rect x="40" y="0" width="8" height="24" rx="2" fill="#049fd9"/><rect x="50" y="8" width="8" height="16" rx="2" fill="#049fd9"/></svg>PVI Planner</div>
+    <div class="hdr-partner"><div class="hdr-name" id="h-partner">—</div><div class="hdr-meta" id="h-meta">—</div></div>
+    <div class="hdr-right">
+      <div class="mo-wrap"><span>Month:</span><select id="month-select"></select></div>
+      <div class="sz-wrap"><span>Size:</span>
+        <select id="sz-select">
+          <option value="XS">XS (≤$2M)</option>
+          <option value="S" selected>S ($2M–$10M)</option>
+          <option value="M">M ($10M–$25M)</option>
+          <option value="L">L ($25M–$100M)</option>
+          <option value="XL">XL (&gt;$100M)</option>
+        </select>
+      </div>
+      <div class="wi-banner hidden" id="wi-banner">⚡ What-If Active — Reset All</div>
+      <button class="btn btn-wi hidden" id="summary-btn">📋 What-If Summary</button>
+      <button class="btn btn-gold" id="benefits-btn">🏆 Benefits &amp; Thresholds</button>
+      <button class="btn btn-ghost" id="reload-btn">↑ New File</button>
+    </div>
+  </header>
+
+  <div class="score-ribbon hidden" id="score-ribbon" style="display:flex;flex-direction:row;flex-wrap:nowrap;"></div>
+
+  <div class="content" id="main-content">
+    <div class="tab-panel active" id="tab-overview">
+      <div style="display:flex;gap:16px;align-items:stretch;margin-bottom:20px">
+        <div class="peak-card" id="peak-card"><div class="peak-title">All-Time Peak</div><div style="font-size:12px;color:var(--muted)">Loading...</div></div>
+        <div class="ms-wrap" id="ms-wrap" style="flex:1;margin-bottom:0"></div>
+      </div>
+      <div class="card mb-20">
+        <div class="card-title">12-Month PVI Trend</div>
+        <div class="chart-filter-bar" id="cfilter-bar"></div>
+        <div id="trend-wrap"></div>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="tab-benefits">
+      <div class="card mb-20" style="background:rgba(251,191,36,.05);border-color:rgba(251,191,36,.28)">
+        <div style="font-size:22px;font-weight:800;margin-bottom:6px">🏆 Partner Benefits by PVI Level</div>
+        <div style="font-size:14px;color:var(--muted);line-height:1.7">Each milestone unlocks cumulative benefits. Higher tiers include all lower-tier benefits plus additional advantages.</div>
+      </div>
+      <div class="benefits-grid mb-20">
+        <div class="bcard t-base"><div class="bc-hdr"><div class="bc-pvi">0.0+</div><div><div class="bc-name">Cisco New Partner</div><div class="bc-desc">Entry level</div></div></div><ul class="bc-list"><li>Cisco Partner status</li><li>PXP (Partner Experience Platform) access</li><li>Black Belt Academy training</li><li>Cisco Commerce platform</li><li>dCloud demo environment</li><li>Fast Track Pricing</li></ul></div>
+        <div class="bcard t-reg"><div class="bc-hdr"><div class="bc-pvi">1.0+</div><div><div class="bc-name">Cisco Basic Partner</div><div class="bc-desc">All New benefits, plus:</div></div></div><ul class="bc-list"><li>Deal Registration — Hunting</li><li>Deal Registration — Teaming</li><li>Not-for-Resale (NFR) product access</li></ul><div class="bc-note">Deal Registration protects partner-led opportunities and provides margin protection.</div></div>
+        <div class="bcard t-port"><div class="bc-hdr"><div class="bc-pvi">5.0+</div><div><div class="bc-name">Cisco Portfolio Partner</div><div class="bc-desc">All Basic benefits, plus:</div></div></div><ul class="bc-list"><li>Cisco (Portfolio) Partner status badge</li><li>Partner Incentive Program (rebates)</li><li>Customer Assessment Incentive rewards</li></ul><div class="bc-note">Rebate programs provide back-end margin that significantly improves partner profitability.</div></div>
+        <div class="bcard t-pref"><div class="bc-hdr"><div class="bc-pvi">7.5+</div><div><div class="bc-name">Cisco Preferred Partner</div><div class="bc-desc">All Portfolio benefits, plus:</div></div></div><ul class="bc-list"><li>Cisco Preferred (Portfolio) Partner status badge</li><li>Higher rebate rates</li><li>Strategic offer differentiation</li><li>10 Cisco U licenses per portfolio</li><li>Next-Gen Specializations eligibility</li></ul><div class="bc-note">Preferred status provides the strongest competitive differentiation and Cisco's highest-value partner programs.</div></div>
+      </div>
+      <div class="card mb-20">
+        <div class="card-title">Minimum Bookings Thresholds — Performance &amp; Engagement</div>
+        <div class="warn-note mb-20" style="margin-bottom:16px"><strong>Cisco 360 Program requirement:</strong> Partners must meet minimum bookings thresholds to receive PVI credit for Performance and Engagement metrics.</div>
+        <table class="ttbl"><thead><tr><th>Category</th><th>Metric</th><th>Window</th><th>Meas A Min</th><th>Meas B Min</th><th>Portfolio(s)</th></tr></thead>
+        <tbody>
+          <tr><td class="tc" rowspan="6" style="vertical-align:top;padding-top:12px">Performance</td><td><strong>TCV Growth</strong></td><td class="muted" style="font-size:12px">Current + prev 11 mo</td><td><span class="ta">$50K</span></td><td class="muted">—</td><td>Security, Networking, Cloud &amp; AI, Collaboration</td></tr>
+          <tr><td><strong>ACV Growth</strong></td><td class="muted" style="font-size:12px">Current + prev 11 mo</td><td><span class="ta">$25K</span></td><td class="muted">—</td><td>Security, Networking, Cloud &amp; AI, Collaboration</td></tr>
+          <tr><td><strong>ACV Growth</strong></td><td class="muted" style="font-size:12px">Current + prev 11 mo</td><td><span class="ta">$50K</span></td><td class="muted">—</td><td>Services</td></tr>
+          <tr><td><strong>Buying Program Penetration %</strong></td><td class="muted" style="font-size:12px">Current + prev 11 mo</td><td class="muted">—</td><td><span class="ta">$50K</span></td><td>Security, Networking, Cloud &amp; AI</td></tr>
+          <tr><td><strong>AI Penetration Rate</strong></td><td class="muted" style="font-size:12px">Current + prev 5 mo</td><td class="muted">—</td><td><span class="ta">$25K</span></td><td>Cloud &amp; AI</td></tr>
+          <tr><td><strong>Premium Services</strong></td><td class="muted" style="font-size:12px">Current + prev 11 mo</td><td class="muted">—</td><td><span class="ta">$50K</span></td><td>Services</td></tr>
+          <tr><td class="tc">Engagement</td><td><strong>On-Time Renewal Rate</strong></td><td class="muted" style="font-size:12px">Current + prev 11 mo</td><td class="muted">—</td><td><span class="ta">$10K</span></td><td>Services</td></tr>
+        </tbody></table>
+      </div>
+      <div class="card">
+        <div class="card-title">PVI Milestones Quick Reference</div>
+        <table class="ttbl"><thead><tr><th>PVI Score</th><th>Partner Tier</th><th>Key Benefits</th></tr></thead><tbody>
+          <tr><td class="mono" style="font-size:20px;font-weight:800;color:var(--c-base)">0.0</td><td>Cisco New Partner</td><td>PXP, Black Belt Academy, dCloud, Fast Track Pricing</td></tr>
+          <tr><td class="mono" style="font-size:20px;font-weight:800;color:var(--c-reg)">1.0</td><td>Cisco Basic Partner</td><td>Deal Registration (Hunting &amp; Teaming), NFR access</td></tr>
+          <tr><td class="mono" style="font-size:20px;font-weight:800;color:var(--c-port)">5.0</td><td>Cisco Portfolio Partner</td><td>Partner Incentives (rebates), Customer Assessment Incentive</td></tr>
+          <tr><td class="mono" style="font-size:20px;font-weight:800;color:var(--c-pref)">7.5</td><td>Cisco Preferred Partner</td><td>Higher rebates, 10 Cisco U licenses/portfolio, Next-Gen Specializations</td></tr>
+        </tbody></table>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="tab-report">
+      <div class="report-wrap" id="report-content"><div class="no-changes">Generate a What-If Summary to see your partner action plan.</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── THRESHOLD TABLES (exact from Cisco PVI Planner v8.6 Metric Formulas sheet) ──
+// Each array = [threshold for index 1, 2, 3, ... 10]
+// Sizes: XL=>$100M  L=>$25M-$100M  M=>$10M-$25M  S=>$2M-$10M  XS=<=$2M
+
+var BB_THRESH={
+  'Cloud + AI Infrastructure':{
+    XL:[15,29,58,87,116,145,174,203,232,261],
+    L: [9,17,34,51,68,85,102,119,136,153],
+    M: [7,14,28,42,56,70,84,98,112,126],
+    S: [5,10,20,30,40,50,60,70,80,90],
+    XS:[1,5,10,15,20,25,30,35,40,45]},
+  'Collaboration':{
+    XL:[15,20,40,60,80,100,120,140,160,180],
+    L: [10,15,30,45,60,75,90,105,130,150],
+    M: [5,10,25,35,45,55,65,75,85,100],
+    S: [1,5,10,15,20,25,30,35,40,50],
+    XS:[0,1,4,8,10,12,14,16,20,25]},
+  'Networking':{
+    XL:[22,45,68,91,114,137,160,183,206,229],
+    L: [18,37,56,75,94,113,132,151,170,189],
+    M: [13,27,41,55,69,83,97,111,125,139],
+    S: [5,11,17,23,29,35,41,47,53,59],
+    XS:[0,1,2,3,4,5,6,7,8,9]},
+  'Security':{
+    XL:[36,72,108,144,180,216,252,288,324,360],
+    L: [17,34,51,68,85,102,119,136,153,170],
+    M: [10,20,30,40,50,60,70,80,90,100],
+    S: [5,10,15,20,30,40,50,60,70,80],
+    XS:[1,5,10,15,20,25,30,40,50,60]},
+  'Services':{
+    XL:[0,7,14,21,28,35,42,49,56,63],
+    L: [0,6,12,18,24,30,36,42,48,54],
+    M: [0,6,10,15,20,25,30,35,40,45],
+    S: [0,2,3,5,6,8,9,11,12,14],
+    XS:[0,1,2,3,4,5,6,7,8,9]}
+};
+
+var CAREER_THRESH={
+  'Cloud + AI Infrastructure':{
+    XL:[32,64,128,192,256,320,384,448,512,577],
+    L: [12,24,49,73,98,122,146,171,195,220],
+    M: [11,22,43,65,87,109,130,152,174,196],
+    S: [7,14,27,41,54,68,82,95,109,123],
+    XS:[1,6,12,19,25,31,37,43,50,56]},
+  'Collaboration':{
+    XL:[15,20,40,60,80,100,120,140,155,175],
+    L: [10,20,30,40,50,60,70,80,90,100],
+    M: [8,12,16,20,30,40,50,60,70,80],
+    S: [6,10,14,16,20,24,28,32,36,40],
+    XS:[2,4,6,8,10,12,14,16,18,20]},
+  'Networking':{
+    XL:[44,89,134,179,224,269,314,359,404,449],
+    L: [22,44,67,89,112,134,157,179,202,224],
+    M: [14,29,44,59,74,89,104,119,134,149],
+    S: [7,14,22,29,37,44,52,59,67,74],
+    XS:[1,2,4,5,7,8,10,11,13,14]},
+  'Security':{
+    XL:[22,44,66,88,110,132,154,176,198,220],
+    L: [11,22,33,44,55,66,77,88,99,110],
+    M: [9,18,27,36,45,54,63,72,81,90],
+    S: [7,14,21,28,35,42,49,56,63,70],
+    XS:[4,8,12,16,20,24,28,32,36,40]}
+};
+
+// Growth thresholds as % (e.g., 1.5 = 1.5% YoY growth required)
+// Index: position = index-1, so [0]=idx1, [9]=idx10
+var ACV_THRESH={
+  'Cloud + AI Infrastructure':{XL:[0,1,1.5,2,2.5,3,3.5,4,4.5,5],L:[0,1,1.5,2,2.5,3,3.5,4,4.5,5],M:[0,1,2,3,4,5,6,7,8,9],S:[0,1,2,3,4,5,6,7,8,9],XS:[0,2,4,6,8,10,12,14,16,18]},
+  'Collaboration':            {XL:[0,1,1.5,2,2.5,3,3.5,4,4.5,5],L:[0,1,1.5,2,2.5,3,3.5,4,4.5,5],M:[0,1,2,3,4,5,6,7,8,9],S:[0,1,2,3,4,5,6,7,8,9],XS:[0,2,4,5,6,7,8,9,10,15]},
+  'Networking':               {XL:[0,1,1.5,2,2.5,3,3.5,4,4.5,5],L:[0,1,1.5,2,2.5,3,3.5,4,4.5,5],M:[0,1,2,3,4,5,6,7,8,9],S:[0,1,2,3,4,5,6,7,8,9],XS:[0,2,4,6,8,10,12,14,16,18]},
+  'Security':                 {XL:[0,1,1.5,2,2.5,3,3.5,4,4.5,5],L:[0,1,1.5,2,2.5,3,3.5,4,4.5,5],M:[0,1,2,3,4,5,6,7,8,9],S:[0,1,2,3,4,5,6,7,8,9],XS:[0,2,4,6,8,10,12,14,16,18]},
+  'Services':                 {XL:[0,1,1.5,2,2.5,3,3.5,4,4.5,5],L:[0,1,1.5,2,2.5,3,3.5,4,4.5,5],M:[0,2,4,6,8,12,14,16,18,20],S:[0,2,4,6,8,12,14,16,18,20],XS:[0,4,6,8,12,16,18,20,22,25]}
+};
+var TCV_THRESH=ACV_THRESH; // TCV uses same % thresholds as ACV per architecture
+
+// Premium Services % thresholds (same for all sizes)
+var PREM_THRESH=[0,2,4,6,8,10,15,20,25,30];
+
+// On-Time Renewal Rate % thresholds (same for all sizes)
+var OTRR_THRESH=[0,10,20,25,30,35,45,50,55,60];
+
+var MILESTONES=[{pvi:0,label:'0.0\nNew',color:'#9ca3af'},{pvi:1,label:'1.0\nBasic',color:'#00cfff'},{pvi:5,label:'5.0\nPortfolio',color:'#22c55e'},{pvi:7.5,label:'7.5\nPreferred',color:'#fbbf24'}];
+var MAX=10;
+var PORTFOLIOS=[
+  {key:'Cloud + AI Infrastructure',label:'Cloud & AI',icon:'☁️',tab:'cloud'},
+  {key:'Collaboration',label:'Collaboration',icon:'💬',tab:'collab'},
+  {key:'Networking',label:'Networking',icon:'🌐',tab:'network'},
+  {key:'Security',label:'Security',icon:'🔒',tab:'security'},
+  {key:'Services',label:'Services',icon:'🛠',tab:'services'},
+  {key:'Splunk',label:'Splunk',icon:'🔍',tab:'splunk'}
+];
+var ARCH_COLORS=['#049fd9','#22c55e','#f59e0b','#ef4444','#a78bfa','#fb923c'];
+var BENEFITS={
+  base:{label:'● New Partner',color:'#9ca3af',items:['Cisco Partner status','PXP access','Black Belt Academy','Cisco Commerce','dCloud demo','Fast Track Pricing']},
+  reg:{label:'✓ Basic Partner',color:'#00cfff',items:['Deal Registration — Hunting','Deal Registration — Teaming','NFR access']},
+  port:{label:'◆ Portfolio Partner',color:'#22c55e',items:['Portfolio Partner status badge','Partner Incentive Program (rebates)','Customer Assessment Incentive rewards']},
+  pref:{label:'★ Preferred Partner',color:'#fbbf24',items:['Preferred Partner status badge','Higher rebate rates','Strategic offer differentiation','10 Cisco U licenses per portfolio','Next-Gen Specializations eligibility']}
+};
+
+var allRows=[],months=[],selectedMonth='',whatIfMap={},partnerName='',beId='',chartFilter=null,shirtSize='S';
+
+// ── WIRE UP ──────────────────────────────────────────────────────────────────
+var dz=document.getElementById('drop-zone'),fi=document.getElementById('file-input');
+dz.addEventListener('dragover',function(e){e.preventDefault();dz.classList.add('drag-over');});
+dz.addEventListener('dragleave',function(){dz.classList.remove('drag-over');});
+dz.addEventListener('drop',function(e){e.preventDefault();dz.classList.remove('drag-over');handleFile(e.dataTransfer.files[0]);});
+dz.addEventListener('click',function(){fi.click();});
+document.getElementById('browse-btn').addEventListener('click',function(){fi.click();});
+fi.addEventListener('change',function(){if(fi.files[0])handleFile(fi.files[0]);});
+document.getElementById('reload-btn').addEventListener('click',function(){fi.click();});
+document.getElementById('wi-banner').addEventListener('click',resetAllWhatIf);
+document.getElementById('month-select').addEventListener('change',function(){selectedMonth=this.value;renderAll();});
+document.getElementById('sz-select').addEventListener('change',function(){shirtSize=this.value;renderAll();});
+document.getElementById('benefits-btn').addEventListener('click',function(){switchTab('benefits');});
+document.getElementById('summary-btn').addEventListener('click',function(){buildReport();switchTab('report');});
+
+function handleFile(f){
+  var r=new FileReader();
+  r.onload=function(e){
+    try{var wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+      parseData(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''}));
+    }catch(err){alert('Error: '+err.message);}
+  };r.readAsArrayBuffer(f);
+}
+
+function parseData(raw){
+  if(raw.length<2)return alert('File empty.');
+  var H=raw[0].map(function(h){return String(h).trim().toLowerCase();});
+  function col(n){return H.findIndex(function(h){return h.includes(n);});}
+  var C={res:col('reseller'),bid:col('be id'),port:col('portfolio'),cat:col('category'),
+    catW:col('category weight'),meas:col('measurement'),measW:col('measurement weight'),
+    mon:col('fiscal month'),ach:col('achieved metric'),achIdx:col('achieved index'),appIdx:col('applied index'),
+    maC:col('measure a count'),maV:col('measure a value'),mbC:col('measure b count'),mbV:col('measure b value'),
+    mcC:col('measure c count'),mcV:col('measure c value')};
+  if(C.port<0||C.appIdx<0)return alert('Required columns not found.');
+  allRows=[];var mSet=new Set(),rn=[],bn=[];
+  for(var i=1;i<raw.length;i++){
+    var r=raw[i];var p=String(r[C.port]||'').trim();if(!p)continue;
+    var m=String(r[C.mon]||'').trim();
+    var res=String(C.res>=0?(r[C.res]||''):'').trim();
+    var bid2=String(C.bid>=0?(r[C.bid]||''):'').trim();
+    allRows.push({reseller:res,beId:bid2,portfolio:p,
+      category:String(r[C.cat]||'').trim(),catWeight:pp(C.catW>=0?r[C.catW]:0),
+      measurement:String(r[C.meas]||'').trim(),measWeight:pp(C.measW>=0?r[C.measW]:0),
+      month:m,achievedMetric:String(C.ach>=0?(r[C.ach]||''):'').trim(),
+      achievedIdx:parseFloat(C.achIdx>=0?r[C.achIdx]:0)||0,
+      appliedIdx:parseFloat(r[C.appIdx])||0,
+      maCount:String(C.maC>=0?(r[C.maC]||''):'').trim(),maValue:String(C.maV>=0?(r[C.maV]||''):'').trim(),
+      mbCount:String(C.mbC>=0?(r[C.mbC]||''):'').trim(),mbValue:String(C.mbV>=0?(r[C.mbV]||''):'').trim(),
+      mcCount:String(C.mcC>=0?(r[C.mcC]||''):'').trim(),mcValue:String(C.mcV>=0?(r[C.mcV]||''):'').trim()});
+    if(m)mSet.add(m);
+    if(res&&!rn.includes(res))rn.push(res);
+    if(bid2&&!bn.includes(bid2))bn.push(bid2);
+  }
+  months=Array.from(mSet).sort(function(a,b){return(parseInt(b)||0)-(parseInt(a)||0);});
+  partnerName=rn[0]||'Unknown Partner';beId=bn[0]||'';selectedMonth=months[0]||'';whatIfMap={};
+  initUI();
+}
+function pp(v){if(v===null||v===undefined||v==='')return 0;var n=parseFloat(String(v).replace('%','').trim());return isNaN(n)?0:n/100;}
+function cnum(s){return parseFloat(String(s||'').replace(/[$,\s]/g,''))||0;}
+function fmtC(n){if(n>=1000000)return'$'+(n/1000000).toFixed(2)+'M';if(n>=1000)return'$'+(n/1000).toFixed(1)+'K';return'$'+n.toFixed(0);}
+
+// ── INIT ─────────────────────────────────────────────────────────────────────
+function initUI(){
+  document.getElementById('upload-screen').classList.add('hidden');
+  document.getElementById('app-shell').classList.remove('hidden');
+  document.getElementById('h-partner').textContent=partnerName;
+  document.getElementById('h-meta').textContent='BE ID: '+beId+'  ·  '+allRows.length+' rows  ·  '+months.length+' months';
+  var sel=document.getElementById('month-select');
+  sel.innerHTML=months.map(function(m){return'<option value="'+m+'">'+m+'</option>';}).join('');
+  sel.value=selectedMonth;
+  buildArchPanels();renderAll();
+}
+function buildArchPanels(){
+  var mc=document.getElementById('main-content');
+  mc.querySelectorAll('.arch-panel').forEach(function(p){p.remove();});
+  PORTFOLIOS.forEach(function(p){
+    if(!allRows.some(function(r){return r.portfolio===p.key;}))return;
+    var panel=document.createElement('div');
+    panel.className='tab-panel arch-panel';panel.id='tab-'+p.tab;
+    panel.innerHTML='<div id="ac-'+p.tab+'"></div>';
+    mc.appendChild(panel);
+  });
+}
+
+function renderAll(){
+  renderRibbon();renderMilestones();renderPeakCard();renderTrend();updateBanner();
+  PORTFOLIOS.forEach(function(p){
+    var el=document.getElementById('ac-'+p.tab);
+    if(el&&el.innerHTML){el.innerHTML=buildArch(p);updateSticky(p);}
+  });
+}
+function updateBanner(){
+  var has=Object.keys(whatIfMap).length>0;
+  document.getElementById('wi-banner').classList.toggle('hidden',!has);
+  document.getElementById('summary-btn').classList.toggle('hidden',!has);
+}
+
+// ── PVI MATH ─────────────────────────────────────────────────────────────────
+function getRows(port,mon){return allRows.filter(function(r){return r.portfolio===port&&r.month===mon;});}
+function calcPVI(port,mon,wi){return getRows(port,mon).reduce(function(s,r){return s+r.catWeight*r.measWeight*(wi?getEff(r):r.appliedIdx);},0);}
+function calcMax(port,mon){return getRows(port,mon).reduce(function(s,r){return s+r.catWeight*r.measWeight*10;},0);}
+function getEff(r){var k=rk(r);return whatIfMap.hasOwnProperty(k)?whatIfMap[k]:r.appliedIdx;}
+function rk(r){return r.portfolio+'|'+r.category+'|'+r.measurement+'|'+r.month;}
+function isMod(port,mon){return getRows(port,mon).some(function(r){return whatIfMap.hasOwnProperty(rk(r));});}
+function pf(n){return(+n).toFixed(2);}
+
+function getTier(v){
+  if(v>=7.5)return{label:'★ Preferred',cls:'tb-pref',color:'#fbbf24',key:'pref'};
+  if(v>=5)return{label:'◆ Portfolio',cls:'tb-port',color:'#22c55e',key:'port'};
+  if(v>=1)return{label:'✓ Basic',cls:'tb-reg',color:'#00cfff',key:'reg'};
+  return{label:'● New',cls:'tb-base',color:'#9ca3af',key:'base'};
+}
+function tierGrad(v){var t=getTier(v);return'linear-gradient(90deg,'+t.color+'88,'+t.color+')';}
+
+// ── RIBBON ───────────────────────────────────────────────────────────────────
+function renderRibbon(){
+  var ribbon=document.getElementById('score-ribbon');
+  var archs=PORTFOLIOS.filter(function(p){return allRows.some(function(r){return r.portfolio===p.key;});});
+  if(!archs.length){ribbon.classList.add('hidden');return;}
+  ribbon.classList.remove('hidden');
+  var cur=getCurrentTab();
+  var html='<div class="sr-overview'+(cur==='overview'?' active':'')+'" onclick="switchTab(\'overview\')">'+
+    '<div class="sr-ov-icon">📊</div><div class="sr-ov-lbl">Overview</div></div>';
+  html+=archs.map(function(p){
+    var a=calcPVI(p.key,selectedMonth,false),w=calcPVI(p.key,selectedMonth,true);
+    var mod=isMod(p.key,selectedMonth),t=getTier(a),wt=getTier(w),isAct=cur===p.tab;
+    var scoreHtml;
+    if(mod){
+      // Two-column layout: CURRENT on left, WHAT-IF on right
+      scoreHtml=
+        '<div style="display:flex;align-items:flex-end;gap:14px;justify-content:center;margin:2px 0">'+
+          '<div style="display:flex;flex-direction:column;align-items:center;gap:1px">'+
+            '<span style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--muted)">CURRENT</span>'+
+            '<span class="sr-curr" style="color:'+t.color+'">'+pf(a)+'</span>'+
+          '</div>'+
+          '<div style="display:flex;flex-direction:column;align-items:center;gap:1px">'+
+            '<span style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--amber)">WHAT-IF</span>'+
+            '<span style="font-family:\'JetBrains Mono\',monospace;font-size:26px;font-weight:800;color:var(--amber);line-height:1">'+pf(w)+'</span>'+
+          '</div>'+
+        '</div>';
+    } else {
+      scoreHtml='<span class="sr-curr" style="color:'+t.color+'">'+pf(a)+'</span>';
+    }
+    return'<div class="sr-arch" onclick="switchTab(\''+p.tab+'\')" style="'+(isAct?'background:rgba(255,255,255,.05)':'')+'">' +
+      '<div class="sr-arch-bot" style="background:'+(isAct?t.color:'transparent')+'"></div>'+
+      '<div class="sr-arch-name">'+p.icon+' '+p.label+'</div>'+
+      scoreHtml+
+      '<div style="display:flex;align-items:center;gap:3px;justify-content:center;flex-wrap:nowrap">'+
+        '<span class="sr-tier" style="color:'+t.color+'">'+t.label+'</span>'+
+        (mod&&wt.key!==t.key?'<span style="color:var(--muted);font-size:9px">→</span><span class="sr-tier" style="color:'+wt.color+'">'+wt.label+'</span>':'')+
+      '</div>'+
+    '</div>';
+  }).join('');
+  
+  ribbon.innerHTML=html;
+  ribbon.style.display="flex";
+  ribbon.style.flexDirection="row";
+}
+function getCurrentTab(){var a=document.querySelector('.tab-panel.active');return a?a.id.replace('tab-',''):'overview';}
+
+// ── MILESTONES ────────────────────────────────────────────────────────────────
+function renderMilestones(){
+  var wrap=document.getElementById('ms-wrap');
+  var archs=PORTFOLIOS.filter(function(p){return allRows.some(function(r){return r.portfolio===p.key;});});
+  var html='<div class="ms-title">Partner Milestone Tracker — '+selectedMonth+'</div>';
+  html+='<div style="flex:1;display:flex;flex-direction:column;justify-content:space-evenly">';
+  html+=archs.map(function(p){
+    var a=calcPVI(p.key,selectedMonth,false),w=calcPVI(p.key,selectedMonth,true);
+    var mod=isMod(p.key,selectedMonth),d=w-a,t=getTier(a),wt=getTier(w);
+    var ap=Math.min(100,(a/MAX)*100).toFixed(1),wp=Math.min(100,(w/MAX)*100).toFixed(1);
+    var mkrs=MILESTONES.map(function(m){
+      if(m.pvi===0)return'';
+      var mp=(m.pvi/MAX)*100,ach=a>=m.pvi,wach=w>=m.pvi,lns=m.label.split('\n');
+      return'<div class="ms-marker" style="left:'+mp+'%">'+
+        '<div class="ms-tick" style="background:'+(ach?m.color:wach?'rgba(245,158,11,.5)':'var(--border2)')+'"></div>'+
+        '<div class="ms-mlbl" style="color:'+(ach?m.color:wach?'rgba(245,158,11,.7)':'var(--muted)')+'">'+lns[0]+'<br>'+lns[1]+'</div>'+
+      '</div>';
+    }).join('');
+    return'<div class="ms-block">'+
+      '<div class="ms-arch-row"><div class="ms-arch-name">'+p.icon+' '+p.label+'</div>'+
+        '<div class="ms-scores">'+
+          '<span class="ms-lbl">Current</span><span class="ms-curr" style="color:'+t.color+'">'+pf(a)+'</span>'+
+          (mod?'<span class="ms-lbl">What-If</span><span class="ms-wi">'+pf(w)+'</span>':'') +
+          (mod&&Math.abs(d)>.01?'<span class="ms-delta" style="color:'+(d>0?'#22c55e':'#ef4444')+';">'+(d>0?'+':'')+pf(d)+'</span>':'')+
+          '<span class="tier-badge '+t.cls+'">'+t.label+'</span>'+
+          (mod&&wt.cls!==t.cls?'<span class="muted" style="font-size:12px">→</span><span class="tier-badge '+wt.cls+'">'+wt.label+'</span>':'')+
+        '</div>'+
+      '</div>'+
+      '<div class="ms-track">'+
+        (mod?'<div class="ms-fill-wi" style="width:'+wp+'%"></div>':'')+
+        '<div class="ms-fill" style="width:'+ap+'%;background:'+tierGrad(a)+'"></div>'+mkrs+
+      '</div>'+
+    '</div>';
+    }).join('');
+  html+='</div>';
+  wrap.innerHTML=html;
+}
+
+// ── HISTORY CHART ─────────────────────────────────────────────────────────────────
+function renderTrend(){
+  var wrap=document.getElementById('trend-wrap'),fb=document.getElementById('cfilter-bar');
+  var dm=months.slice(0,13).reverse();
+  var archs=PORTFOLIOS.filter(function(p){return allRows.some(function(r){return r.portfolio===p.key;});});
+  fb.innerHTML='<span style="font-size:12px;color:var(--muted);font-weight:600;margin-right:4px">Show:</span>'+
+    '<button class="cfilter-btn'+(chartFilter===null?' on':'')+'" style="'+(chartFilter===null?'background:#00cfff;border-color:#00cfff;color:#000':'')+'\" onclick="setCF(null)">All</button>'+
+    archs.map(function(p,si){var on=chartFilter===p.key,col=ARCH_COLORS[si%ARCH_COLORS.length];
+      return'<button class="cfilter-btn'+(on?' on':'')+'" style="'+(on?'background:'+col+';border-color:'+col+';color:#000':'')+'\" onclick="setCF(\''+p.key+'\')">'+p.icon+' '+p.label+'</button>';
+    }).join('');
+  var active=archs.filter(function(p){return chartFilter===null||chartFilter===p.key;});
+  var allV=[];
+  var series=active.map(function(p){
+    var ai=archs.findIndex(function(a){return a.key===p.key;});
+    var vals=dm.map(function(m){return calcPVI(p.key,m,false);});
+    vals.forEach(function(v){allV.push(v);});
+    return{p:p,vals:vals,col:ARCH_COLORS[ai%ARCH_COLORS.length]};
+  });
+  var maxV=Math.max(MAX,Math.max.apply(null,allV)||.01);
+  var W=1200,H=280,PL=48,PR=55,PT=14,PB=44,cW=W-PL-PR,cH=H-PT-PB,n=dm.length;
+  function xS(i){return PL+(n>1?(i/(n-1))*cW:cW/2);}
+  function yS(v){return PT+cH-(v/maxV)*cH;}
+  var ci=dm.indexOf(selectedMonth);
+  var mLines=MILESTONES.map(function(m){if(m.pvi===0)return'';var y=yS(m.pvi);
+    return'<line x1="'+PL+'" y1="'+y+'" x2="'+(W-PR)+'" y2="'+y+'" stroke="'+m.color+'" stroke-width="1.5" stroke-dasharray="6,4" opacity=".4"/>'+
+      '<text x="'+(W-PR+6)+'" y="'+(y+4)+'" font-size="11" fill="'+m.color+'" opacity=".8" font-weight="700">'+m.pvi+'</text>';}).join('');
+  var yGrid=[0,maxV/4,maxV/2,maxV*.75,maxV].map(function(v){var y=yS(v);
+    return'<line x1="'+PL+'" y1="'+y+'" x2="'+(W-PR)+'" y2="'+y+'" stroke="#1f2e48" stroke-width="1"/>'+
+      '<text x="'+(PL-8)+'" y="'+(y+4)+'" text-anchor="end" font-size="12" fill="#6270a0" font-weight="600">'+v.toFixed(1)+'</text>';}).join('');
+  var curLine=ci>=0?'<line x1="'+xS(ci)+'" y1="'+PT+'" x2="'+xS(ci)+'" y2="'+(H-PB)+'" stroke="#aaa" stroke-width="1.5" stroke-dasharray="4,3" opacity=".35"/>':'';
+  var lines=series.map(function(s){
+    var pts=s.vals.map(function(v,i){return xS(i)+','+yS(v);}).join(' ');
+    var dot=ci>=0?'<circle cx="'+xS(ci)+'" cy="'+yS(s.vals[ci])+'" r="5" fill="'+s.col+'"/>':'';
+    var lbl=ci>=0?'<text x="'+xS(ci)+'" y="'+(yS(s.vals[ci])-11)+'" text-anchor="middle" font-size="12" fill="'+s.col+'" font-weight="700">'+pf(s.vals[ci])+'</text>':'';
+    return'<polyline points="'+pts+'" fill="none" stroke="'+s.col+'" stroke-width="2.5" stroke-linejoin="round" opacity=".9"/>'+dot+lbl;
+  });
+  var xLbls=dm.map(function(m,i){var cur=m===selectedMonth,sh=(m.match(/\(([^)]+)\)/)||[])[1]||m.substring(4,8);
+    return'<text x="'+xS(i)+'" y="'+(H-6)+'" text-anchor="middle" font-size="12" fill="'+(cur?'#fff':'#6270a0')+'" font-weight="'+(cur?'700':'500')+'">'+sh+'</text>';});
+  var legend=series.map(function(s){
+    return'<span style="display:inline-flex;align-items:center;gap:6px;margin-right:18px;font-size:14px;color:#9ca3af;font-weight:600;cursor:pointer" onclick="setCF(\''+(chartFilter===s.p.key?'__':s.p.key)+'\')">'+
+      '<span style="width:20px;height:3px;background:'+s.col+';display:inline-block;border-radius:2px"></span>'+s.p.label+'</span>';
+  }).join('');
+  wrap.innerHTML='<div style="overflow-x:auto"><svg width="100%" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="xMidYMid meet" style="min-width:600px">'+
+    yGrid+mLines+curLine+lines.join('')+xLbls.join('')+'</svg></div>'+
+    '<div style="margin-top:14px;display:flex;flex-wrap:wrap">'+legend+'</div>';
+}
+function setCF(k){chartFilter=(k==='__'?null:k==='__clear__'?null:(chartFilter===k?null:k));renderTrend();}
+
+// ── STICKY BAND ───────────────────────────────────────────────────────────────
+function updateSticky(p){}
+
+// ── MEASUREMENT CONTEXT ───────────────────────────────────────────────────────
+
+// ── ROW ID COUNTER (reset on each buildArch call) ───────────────────────────
+var _rc = 0;
+function nid(){ return String(++_rc); }
+function sid(id){ return 'k'+id; }
+
+// ── MEASUREMENT CONTEXT ───────────────────────────────────────────────────────
+function idxCls(v){return v===0?'i0':v<4?'il':v<7?'im':v<10?'ih':'ix';}
+function getMeasCtx(r){
+  var m=r.measurement.toLowerCase(),ach=r.achievedMetric;
+  var maV=r.maValue,mbV=r.mbValue,maC=r.maCount,mbC=r.mbCount,mcV=r.mcValue,mcC=r.mcCount;
+  if(m.includes('customer success')){var lv=parseInt(maV)||0;var ln={0:'Not Enrolled',1:'Basic (CEES)',2:'Intermediate (CEES)',3:'Advanced (CEAS)'};
+    return'<div class="meas-ctx">Level '+lv+' — '+(ln[lv]||'Unknown')+'  <span style="opacity:.6">· 1=Basic  2=Intermediate  3=Advanced</span></div>';}
+  if(m.includes('managed services')){var lv2=parseInt(maV)||0;var ln2={0:'Not Enrolled',1:'Basic',2:'Intermediate',3:'Advanced'};
+    return'<div class="meas-ctx">Level '+lv2+' — '+(ln2[lv2]||'Unknown')+'  <span style="opacity:.6">· 1=Basic  2=Intermediate  3=Advanced</span></div>';}
+  if(m.includes('black belt')){var pts=cnum(maV);var cnt=parseInt(maC)||0;
+    return'<div class="meas-ctx">Total Points: <strong style="color:var(--blue2)">'+pts.toFixed(1)+'</strong>'+(cnt?' &nbsp;·&nbsp; '+cnt+' individuals':'')+'</div>';}
+  if(m.includes('career cert')||m.includes('certification maturity')){
+    var tot=(cnum(maV))+(cnum(mbV))+(cnum(mcV));
+    var cExp=parseInt(maC)||0,cPro=parseInt(mbC)||0,cAss=parseInt(mcC)||0;
+    return'<div class="meas-ctx">Total Points: <strong style="color:var(--blue2)">'+tot.toFixed(0)+'</strong>'+
+      (cExp?' &nbsp;·&nbsp; Expert: '+cExp:'')+(cPro?' &nbsp;·&nbsp; Prof: '+cPro:'')+(cAss?' &nbsp;·&nbsp; Assoc: '+cAss:'')+
+    '</div>';}
+  if(m.includes('growth')||m.includes('yoy')){return'<div class="meas-ctx">Growth: <strong style="color:var(--blue2)">'+(ach||'—')+'</strong>'+(maV&&maV!==''?'  ·  CY: '+maV+(mbV&&mbV!==''?'  |  PY: '+mbV:''):'')+'</div>';}
+  if(m.includes('penetration')||m.includes('pen')||m.includes('renewal')||m.includes('adoption')||m.includes('deployment')||m.includes('onboard')){
+    return'<div class="meas-ctx">Rate: <strong style="color:var(--blue2)">'+(ach||'—')+'</strong>'+(maV&&maV!==''?'  ·  Actual: '+maV+(mbV&&mbV!==''&&mbV!==maV?'  /  Total: '+mbV:''):'')+'</div>';}
+  return ach?'<div class="meas-ctx">Achieved: <strong>'+ach+'</strong></div>':'';
+}
+
+function getWifHintContent(r,tgt){
+  var req=getDetailedReq(r,tgt);return req?'<span style="color:var(--amber)">→ </span>'+req:'';
+}
+
+
+// ── DETAILED REQUIREMENT LOOKUP ──────────────────────────────────────────────
+function getDetailedReq(r,tgt){
+  var m=r.measurement.toLowerCase(),from=Math.round(r.appliedIdx),port=r.portfolio,sz=shirtSize;
+  if(tgt===from)return'';
+  if(m.includes('customer success')){
+    var cxMap={
+      0:'Remove CX Specialization enrollment (index returns to 0)',
+      5:'Achieve <strong>CX Maturity — Basic</strong>: Enroll and complete CEES Level 1 (Customer Experience Essentials Specialization). Earns index 5.',
+      7:'Achieve <strong>CX Maturity — Intermediate</strong>: Complete CEES Level 2 (Customer Experience Essentials — Advanced). Earns index 7.',
+      10:'Achieve <strong>CX Maturity — Advanced</strong>: Complete the CEAS (Customer Experience Advanced Specialization). Earns index 10.'
+    };
+    return(cxMap[tgt]||'Achieve CX Maturity — target Index '+tgt);}
+  if(m.includes('managed services')){
+    var mspMap={
+      0:'Remove MSP practice designation (index returns to 0)',
+      5:'Achieve <strong>MSP Maturity — Basic</strong> (Level 1). Earns index 5.',
+      7:'Achieve <strong>MSP Maturity — Intermediate</strong> (Level 2). Earns index 7.',
+      10:'Achieve <strong>MSP Maturity — Advanced</strong> (Level 3). Earns index 10.'
+    };
+    return(mspMap[tgt]||'Achieve MSP Maturity — target Index '+tgt);}
+  if(m.includes('black belt')){
+    var thresh=BB_THRESH[port]?BB_THRESH[port][sz]:null;
+    var curPts=cnum(r.maValue),curCnt=parseInt(r.maCount)||0;
+    if(thresh&&tgt>=1&&tgt<=10){
+      var need=thresh[tgt-1],diff=need-curPts;
+      var avgPP=curCnt>0?curPts/curCnt:1.5,addlPpl=Math.ceil(Math.abs(diff)/avgPP);
+      if(diff>0)return'Need <strong>'+diff.toFixed(1)+' more Black Belt points</strong> to reach the Index '+tgt+' threshold of '+need+' points.';
+      return'Current points ('+curPts.toFixed(1)+') already meet the Index '+tgt+' threshold ('+need+' pts). Confirm data is current.';}
+    return(tgt>from?'Increase':'Decrease')+' Black Belt certified point total';}
+  if(m.includes('career cert')||m.includes('certification maturity')){
+    var cThresh=CAREER_THRESH[port]?CAREER_THRESH[port][sz]:null;
+    var tot=cnum(r.maValue)+cnum(r.mbValue)+cnum(r.mcValue);
+    if(cThresh&&tgt>=1&&tgt<=10){
+      var cNeed=cThresh[tgt-1],cDiff=cNeed-tot;
+      if(cDiff>0)return'Need <strong>'+cDiff.toFixed(0)+' more Career Certification points</strong> to reach the Index '+tgt+' threshold of '+cNeed+' pts. Example: '+Math.ceil(cDiff/10)+' Expert cert(s), or '+Math.ceil(cDiff/3)+' Professional cert(s), or '+Math.ceil(cDiff)+' Associate cert(s). (Expert=10pts, Professional=3pts, Associate=1pt)';
+      return'Current cert points ('+tot.toFixed(0)+') already meet the Index '+tgt+' threshold ('+cNeed+' pts).';}
+    return(tgt>from?'Increase':'Decrease')+' Career Certification points';}
+  if(m.includes('growth')||m.includes('yoy')){
+    var py=cnum(r.mbValue),cy=cnum(r.maValue);
+    // Use actual threshold table: ACV vs TCV
+    var isAcv=!m.includes('tcv');
+    var gThresh=(isAcv?ACV_THRESH:TCV_THRESH)[port];
+    var reqPct=gThresh&&gThresh[sz]&&tgt>=1?gThresh[sz][tgt-1]:(tgt*9);
+    if(py>0){var reqCY=py*(1+reqPct/100),add=reqCY-cy;
+      return'Need <strong>'+reqPct+'% YoY '+(isAcv?'ACV':'TCV')+' growth</strong> ('+sz+' size threshold). Based on prior year of '+fmtC(py)+', current year must reach <strong>'+fmtC(reqCY)+'</strong>'+(add>0?' — additional '+fmtC(add)+' needed':' ✓ already achieved')+'. Note: minimum bookings thresholds may apply.';}
+    return'Achieve '+reqPct+'% YoY '+(isAcv?'ACV':'TCV')+' growth';}
+  if(m.includes('penetration')||m.includes('pen')){
+    var total2=cnum(r.mbValue),actual=cnum(r.maValue),reqPct2=tgt*10;
+    var isBuying=m.includes('buying');
+    var qualifier=isBuying?' <strong>(EAs &amp; MSLA)</strong>':'';
+    if(total2>0){var reqAct=total2*(reqPct2/100),addAct=reqAct-actual;
+      return'Need approximately <strong>'+reqPct2+'% penetration rate</strong>'+qualifier+'. With a total of '+fmtC(total2)+', qualifying bookings must reach <strong>'+fmtC(reqAct)+'</strong>'+(addAct>0?' (additional '+fmtC(addAct)+' needed)':'')+'. Note: minimum bookings thresholds may apply.';}
+    return'Achieve approximately '+reqPct2+'% penetration rate'+qualifier;}
+  if(m.includes('renewal')){
+    var tot3=cnum(r.mbValue);
+    var rp=tgt>=1?OTRR_THRESH[tgt-1]:(tgt*10);
+    if(tot3>0){var rAct=tot3*(rp/100),actNow=cnum(r.maValue),addR=rAct-actNow;
+      return'Need <strong>'+rp+'% on-time renewal rate</strong> (same threshold for all sizes). With '+fmtC(tot3)+' due, <strong>'+fmtC(rAct)+'</strong> must renew on time'+(addR>0?' — additional '+fmtC(addR)+' needed':' ✓')+'. Min bookings threshold: $10K.';}
+    return'Achieve '+rp+'% on-time renewal rate';}
+  if(m.includes('premium')||m.includes('prem svcs')){
+    var b2p=cnum(r.mbValue),actP=cnum(r.maValue);
+    var rp2=tgt>=1?PREM_THRESH[tgt-1]:(tgt*2.5);
+    if(b2p>0){var rAct2=b2p*(rp2/100),addP=rAct2-actP;
+      return'Need <strong>'+rp2+'% Premium Services</strong> (same for all sizes). With total bookings of '+fmtC(b2p)+', premium bookings must reach <strong>'+fmtC(rAct2)+'</strong>'+(addP>0?' — additional '+fmtC(addP)+' needed':' ✓')+'. Min bookings threshold: $50K.';}
+    return'Achieve '+rp2+'% Premium Services';}
+  if(m.includes('deployment')||m.includes('adoption')||m.includes('onboard')){
+    var b2=cnum(r.mbValue),rp2b=tgt*10;
+    if(b2>0){var rAct2b=b2*(rp2b/100);return'Need approximately <strong>'+rp2b+'%</strong> — reach <strong>'+fmtC(rAct2b)+'</strong> from total of '+fmtC(b2)+'.';}
+    return'Achieve approximately '+rp2b+'%';}
+  return(tgt>from?'Increase':'Decrease')+' metric to reach Index '+tgt;
+}
+
+// ── HISTORY CHART ─────────────────────────────────────────────────────────────
+function buildHistory(p){
+  var sm=months.slice(0,13).reverse();
+  var pvis=sm.map(function(m){return calcPVI(p.key,m,false);});
+  var mx=Math.max.apply(null,pvis.concat([.01]));
+  var bars=sm.map(function(m,i){
+    var v=pvis[i],pct=Math.max(4,(v/mx)*100).toFixed(1),cur=m===selectedMonth;
+    var sh=(m.match(/\(([^)]+)\)/)||[])[1]||m.substring(4,8);
+    var t=getTier(v),col=cur?t.color:t.color+'77';
+    return'<div style="display:flex;flex-direction:column;align-items:center;flex:1;min-width:40px;padding:0 8px">'+
+      '<div style="font-family:\'JetBrains Mono\',monospace;font-size:13px;font-weight:700;margin-bottom:5px;color:'+(cur?t.color:'#6270a0')+'">'+pf(v)+'</div>'+
+      '<div style="height:80px;display:flex;align-items:flex-end;width:100%"><div style="width:100%;height:'+pct+'%;border-radius:4px 4px 0 0;background:'+col+';cursor:pointer;transition:all .15s" onclick="document.getElementById(\'month-select\').value=\''+m+'\';selectedMonth=\''+m+'\';renderAll()"></div></div>'+
+      '<div style="font-size:10px;color:var(--muted);margin-top:5px;writing-mode:vertical-lr;transform:rotate(180deg);height:40px;overflow:hidden;font-weight:600">'+sh+'</div>'+
+    '</div>';
+  }).join('');
+  return'<div class="card"><div class="card-title">Historical PVI — '+p.label+' (click bar to select month)</div>'+
+    '<div style="display:flex;align-items:flex-end;gap:0;padding-bottom:4px">'+bars+'</div></div>';
+}
+
+// ── WIF CELL: dropdown for CX/MSP, number input for everything else ───────────
+function buildWifCell(r,k,ho,eff,id,p){
+  var m=r.measurement.toLowerCase();
+  var isCxMsp=m.includes('customer success')||m.includes('managed services');
+  if(isCxMsp){
+    var opts=[
+      {v:0,label:'0'},
+      {v:5,label:'5'},
+      {v:7,label:'7'},
+      {v:10,label:'10'}
+    ];
+    var validVals=[0,5,7,10];
+    var selVal=validVals.indexOf(Math.round(eff))>=0?Math.round(eff):0;
+    return'<select class="wif-select'+(ho?'':' unch')+'" '+
+      'data-key="'+k+'" data-portfolio="'+p.key+'" data-tab="'+p.tab+'" data-kid="'+id+'" '+
+      'onchange="handleWIF(this)">'+
+      opts.map(function(o){return'<option value="'+o.v+'"'+(o.v===selVal?' selected':'')+'>'+o.label+'</option>';}).join('')+
+    '</select>';
+  }
+  return'<input type="number" min="0" max="10" step="1" class="wif-input'+(ho?'':' unch')+'" '+
+    'value="'+Math.round(eff)+'" data-key="'+k+'" data-portfolio="'+p.key+'" data-tab="'+p.tab+'" data-kid="'+id+'" '+
+    'onchange="handleWIF(this)" title="0–10">';
+}
+
+// ── ARCH CONTENT (no hero section) ───────────────────────────────────────────
+function buildArch(p){
+  _rc=0; // reset row counter for this arch
+  var rows=getRows(p.key,selectedMonth);
+  if(!rows.length)return'<div class="info-note">No data for <strong>'+p.label+'</strong> in selected month.</div>';
+  var a=calcPVI(p.key,selectedMonth,false),w=calcPVI(p.key,selectedMonth,true);
+  var mx=calcMax(p.key,selectedMonth)||MAX,mod=isMod(p.key,selectedMonth),d=w-a;
+  var t=getTier(a);
+  var cats=[];rows.forEach(function(r){if(!cats.includes(r.category))cats.push(r.category);});
+
+  var tbl=cats.map(function(cat){
+    var cr=rows.filter(function(r){return r.category===cat;});
+    var catW=cr[0]?cr[0].catWeight:0;
+    var cA=cr.reduce(function(s,r){return s+r.catWeight*r.measWeight*r.appliedIdx;},0);
+    var cWI=cr.reduce(function(s,r){return s+r.catWeight*r.measWeight*getEff(r);},0);
+    var cD=cWI-cA;
+    var catSid='s_'+( p.tab+'_'+cat).replace(/[^a-zA-Z0-9]/g,'_');
+
+    var mr=cr.map(function(r){
+      var id=nid(),k=rk(r),ho=whatIfMap.hasOwnProperty(k),eff=getEff(r);
+      var wA=r.catWeight*r.measWeight*r.appliedIdx,wW=r.catWeight*r.measWeight*eff,md=wW-wA;
+      var wtFmt=(r.catWeight*100).toFixed(0)+'%×'+(r.measWeight*100).toFixed(0)+'%='+(r.catWeight*r.measWeight*100).toFixed(1)+'%';
+      var hintHtml=ho?getWifHintContent(r,eff):'';
+      return'<tr>'+
+        '<td><div class="meas-name">'+r.measurement+'</div>'+getMeasCtx(r)+
+          '<div class="meas-hint" id="h_'+id+'">'+hintHtml+'</div>'+
+        '</td>'+
+        '<td class="r" style="padding-top:15px"><div class="wt-formula">'+wtFmt+'</div></td>'+
+        '<td class="r" style="padding-top:15px"><span class="idx-chip '+idxCls(r.appliedIdx)+'">'+r.appliedIdx.toFixed(0)+'</span></td>'+
+        '<td class="r" style="padding-top:11px">'+buildWifCell(r,k,ho,eff,id,p)+'</td>'+
+        '<td class="r" id="w_'+id+'" style="padding-top:15px"><div class="wtd-c" style="color:'+t.color+'">'+wA.toFixed(2)+'</div>'+(ho?'<div class="wtd-w">'+wW.toFixed(2)+'</div>':'')+'</td>'+
+        '<td class="r" id="d_'+id+'" style="padding-top:15px">'+(Math.abs(md)>.001?'<span class="dchip '+(md>0?'dp':'dn')+'">'+(md>0?'+':'')+md.toFixed(2)+'</span>':'<span class="dchip d0">—</span>')+'</td>'+
+      '</tr>';
+    }).join('');
+
+    return'<tr class="cat-row"><td colspan="6">'+cat+' <span style="font-size:13px;font-weight:500;text-transform:none;letter-spacing:0;color:var(--muted)">('+( catW*100).toFixed(0)+'% weight)</span></td></tr>'+
+      mr+'<tr class="sub-row" id="'+catSid+'"><td colspan="2" class="muted">Category subtotal</td>'+
+        '<td class="r mono" style="color:'+t.color+';font-size:14px">'+cA.toFixed(2)+'</td><td></td>'+
+        '<td class="r mono" style="color:'+(Math.abs(cD)>.001?'var(--amber)':t.color)+';font-size:14px">'+cWI.toFixed(2)+'</td>'+
+        '<td class="r">'+(Math.abs(cD)>.001?'<span class="dchip '+(cD>0?'dp':'dn')+'">'+(cD>0?'+':'')+cD.toFixed(2)+'</span>':'<span class="dchip d0">—</span>')+'</td></tr>';
+  }).join('');
+
+  return'<div class="card mb-20" style="padding:0;overflow:hidden">'+
+    '<table class="metric-table">'+
+      '<thead><tr><th>Measurement</th><th class="r">Wt%</th><th class="r" style="color:var(--blue2)">Current Idx</th><th class="r" style="color:var(--amber)">⚡ What-If</th><th class="r"><span style="color:var(--blue2)">CURRENT</span> / <span style="color:var(--amber)">W-I</span> WTD</th><th class="r">Δ</th></tr></thead>'+
+      '<tbody>'+tbl+
+        '<tr class="tot-row" id="tot_'+p.tab+'"'+( mod?' style="background:rgba(245,158,11,.06)"':'')+'>'+
+          '<td colspan="3"><strong style="color:'+t.color+'">TOTAL PVI — '+p.label+'</strong></td><td></td>'+
+          '<td class="r"><div class="wtd-c" style="font-size:24px;color:'+t.color+'">'+pf(a)+'</div>'+(mod?'<div class="wtd-w" style="font-size:24px">'+pf(w)+'</div>':'')+'</td>'+
+          '<td class="r">'+(Math.abs(d)>.01?'<span class="dchip '+(d>0?'dp':'dn')+'" style="font-size:16px">'+(d>0?'+':'')+pf(d)+'</span>':'<span class="dchip d0">—</span>')+'</td>'+
+        '</tr>'+
+      '</tbody>'+
+    '</table>'+
+  '</div>'+buildHistory(p);
+}
+
+// ── IN-PLACE WHAT-IF UPDATE (no DOM rebuild, no layout shift) ─────────────────
+function handleWIF(el){
+  var k=el.dataset.key,pk=el.dataset.portfolio,kid=el.dataset.kid;
+  var val;
+  if(el.tagName==='SELECT'){val=parseInt(el.value)||0;}
+  else{val=Math.round(Math.min(10,Math.max(0,parseFloat(el.value)||0)));}
+  el.value=val;
+
+  var pts=k.split('|');
+  var row=allRows.find(function(r){return r.portfolio===pts[0]&&r.category===pts[1]&&r.measurement===pts[2]&&r.month===pts[3];});
+  if(!row)return;
+  var from=Math.round(row.appliedIdx);
+  if(from===val){delete whatIfMap[k];el.classList.add('unch');}
+  else{whatIfMap[k]=val;el.classList.remove('unch');}
+
+  var p=PORTFOLIOS.find(function(x){return x.key===pk;});
+  var curA=calcPVI(pk,selectedMonth,false);
+  var t=getTier(curA);
+
+  // Update hint in-place (no layout shift since min-height is reserved)
+  var he=document.getElementById('h_'+kid);
+  if(he)he.innerHTML=(val!==from)?getWifHintContent(row,val):'';
+
+  // Update weighted value in-place
+  var we=document.getElementById('w_'+kid);
+  var wA=row.catWeight*row.measWeight*row.appliedIdx;
+  var wW=row.catWeight*row.measWeight*val;
+  if(we)we.innerHTML='<div class="wtd-c" style="color:'+t.color+'">'+wA.toFixed(2)+'</div>'+(val!==from?'<div class="wtd-w">'+wW.toFixed(2)+'</div>':'');
+
+  // Update delta in-place
+  var de=document.getElementById('d_'+kid);
+  var md=wW-wA;
+  if(de)de.innerHTML=Math.abs(md)>.001?'<span class="dchip '+(md>0?'dp':'dn')+'">'+(md>0?'+':'')+md.toFixed(2)+'</span>':'<span class="dchip d0">—</span>';
+
+  // Update category subtotal in-place
+  if(p){
+    var catSid='s_'+(p.tab+'_'+row.category).replace(/[^a-zA-Z0-9]/g,'_');
+    var se=document.getElementById(catSid);
+    if(se){
+      var cr=getRows(pk,selectedMonth).filter(function(r){return r.category===row.category;});
+      var cA2=cr.reduce(function(s,r){return s+r.catWeight*r.measWeight*r.appliedIdx;},0);
+      var cWI2=cr.reduce(function(s,r){return s+r.catWeight*r.measWeight*getEff(r);},0);
+      var cD2=cWI2-cA2;
+      se.innerHTML='<td colspan="2" class="muted">Category subtotal</td>'+
+        '<td class="r mono" style="color:'+t.color+';font-size:14px">'+cA2.toFixed(2)+'</td><td></td>'+
+        '<td class="r mono" style="color:'+(Math.abs(cD2)>.001?'var(--amber)':t.color)+';font-size:14px">'+cWI2.toFixed(2)+'</td>'+
+        '<td class="r">'+(Math.abs(cD2)>.001?'<span class="dchip '+(cD2>0?'dp':'dn')+'">'+(cD2>0?'+':'')+cD2.toFixed(2)+'</span>':'<span class="dchip d0">—</span>')+'</td>';
+    }
+  }
+
+  // Update arch total in-place
+  var te=document.getElementById('tot_'+(p?p.tab:''));
+  if(te&&p){
+    var nA=calcPVI(pk,selectedMonth,false),nW=calcPVI(pk,selectedMonth,true);
+    var nD=nW-nA,nMod=isMod(pk,selectedMonth),nT=getTier(nA);
+    te.innerHTML='<td colspan="3"><strong style="color:'+nT.color+'">TOTAL PVI — '+p.label+'</strong></td><td></td>'+
+      '<td class="r"><div class="wtd-c" style="font-size:24px;color:'+nT.color+'">'+pf(nA)+'</div>'+(nMod?'<div class="wtd-w" style="font-size:24px">'+pf(nW)+'</div>':'')+'</td>'+
+      '<td class="r">'+(Math.abs(nD)>.01?'<span class="dchip '+(nD>0?'dp':'dn')+'" style="font-size:16px">'+(nD>0?'+':'')+pf(nD)+'</span>':'<span class="dchip d0">—</span>')+'</td>';
+    te.style.background=nMod?'rgba(245,158,11,.06)':'';
+  }
+
+  if(p)updateSticky(p);
+  renderRibbon();renderMilestones();updateBanner();
+}
+
+function resetArch(pk){
+  Object.keys(whatIfMap).forEach(function(k){if(k.startsWith(pk+'|'))delete whatIfMap[k];});
+  var p=PORTFOLIOS.find(function(x){return x.key===pk;});
+  if(p){var el=document.getElementById('ac-'+p.tab);if(el)el.innerHTML=buildArch(p);updateSticky(p);}
+  renderRibbon();renderMilestones();updateBanner();
+}
+function resetAllWhatIf(){whatIfMap={};renderAll();}
+
+// ── REPORT ────────────────────────────────────────────────────────────────────
+function buildReport(){
+  var changes=[];
+  Object.keys(whatIfMap).forEach(function(k){
+    var pts=k.split('|');
+    var row=allRows.find(function(r){return r.portfolio===pts[0]&&r.category===pts[1]&&r.measurement===pts[2]&&r.month===pts[3];});
+    if(!row)return;
+    var from=Math.round(row.appliedIdx),to=whatIfMap[k];
+    var p=PORTFOLIOS.find(function(x){return x.key===row.portfolio;});
+    changes.push({row:row,from:from,to:to,pvi_delta:row.catWeight*row.measWeight*(to-from),arch:p?p.label:'?',icon:p?p.icon:'',portfolio:pts[0],tab:p?p.tab:''});
+  });
+  if(!changes.length){document.getElementById('report-content').innerHTML='<div class="no-changes">No what-if changes made yet. Edit the ⚡ What-If Index column on any architecture tab, then return here.</div>';return;}
+
+  var archSummary={};
+  PORTFOLIOS.forEach(function(p){
+    if(!allRows.some(function(r){return r.portfolio===p.key;}))return;
+    var a=calcPVI(p.key,selectedMonth,false),w=calcPVI(p.key,selectedMonth,true);
+    var ta=getTier(a),tw=getTier(w);
+    if(isMod(p.key,selectedMonth))archSummary[p.key]={label:p.label,icon:p.icon,actual:a,whatif:w,delta:w-a,tierFrom:ta,tierTo:tw};
+  });
+  var tierUpgrades=Object.values(archSummary).filter(function(s){return s.tierFrom.key!==s.tierTo.key;});
+  var today=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+
+  function plainText(){
+    var L=['CISCO PVI WHAT-IF PLANNING SUMMARY','='.repeat(50),'Partner: '+partnerName,'Month: '+selectedMonth,'Revenue Size: '+shirtSize,'Generated: '+today,''];
+    L.push('PROJECTED PVI IMPACT','—'.repeat(40));
+    Object.values(archSummary).forEach(function(s){L.push(s.icon+' '+s.label+': '+pf(s.actual)+' → '+pf(s.whatif)+' ('+(s.delta>0?'+':'')+pf(s.delta)+')  ['+s.tierFrom.label+(s.tierFrom.key!==s.tierTo.key?' → '+s.tierTo.label:'')+']');});
+    L.push('','PROPOSED CHANGES & REQUIRED ACTIONS','—'.repeat(40));
+    changes.forEach(function(c){
+      L.push(c.icon+' '+c.arch+' — '+c.row.category+' — '+c.row.measurement);
+      L.push('  Current Index: '+c.from+' → Target Index: '+c.to+'  (PVI impact: '+(c.pvi_delta>0?'+':'')+c.pvi_delta.toFixed(2)+')');
+      var req=getDetailedReq(c.row,c.to).replace(/<[^>]+>/g,'');
+      L.push('  ACTION: '+req);L.push('');
+    });
+    if(tierUpgrades.length){L.push('BENEFITS UNLOCKED','—'.repeat(40));
+      tierUpgrades.forEach(function(s){L.push(s.tierTo.label+' — '+s.label);
+        var b=BENEFITS[s.tierTo.key];if(b)b.items.forEach(function(i){L.push('  + '+i);});L.push('');});}
+    return L.join('\n');
+  }
+
+  var impactRows=Object.values(archSummary).map(function(s){
+    return'<tr><td style="font-size:15px;font-weight:700">'+s.icon+' '+s.label+'</td>'+
+      '<td class="r mono" style="font-size:18px;font-weight:800;color:'+s.tierFrom.color+'">'+pf(s.actual)+'</td>'+
+      '<td class="r mono" style="font-size:18px;font-weight:800;color:var(--amber)">'+pf(s.whatif)+'</td>'+
+      '<td class="r"><span class="dchip '+(s.delta>0?'dp':'dn')+'" style="font-size:14px">'+(s.delta>0?'+':'')+pf(s.delta)+'</span></td>'+
+      '<td><span class="tier-badge '+s.tierFrom.cls+'">'+s.tierFrom.label+'</span></td>'+
+      '<td>'+(s.tierFrom.key!==s.tierTo.key?'<span class="tier-badge '+s.tierTo.cls+'">'+s.tierTo.label+'</span>':'<span class="muted" style="font-size:13px">No change</span>')+'</td>'+
+    '</tr>';
+  }).join('');
+
+  var changeItems=changes.map(function(c){
+    var req=getDetailedReq(c.row,c.to);
+    return'<div class="req-item">'+
+      '<div class="req-arch">'+c.icon+' '+c.arch+'  ·  '+c.row.category+'</div>'+
+      '<div class="req-meas">'+c.row.measurement+'</div>'+
+      '<div class="req-change" style="font-size:14px">Index <strong style="color:var(--blue2)">'+c.from+'</strong> → <strong style="color:var(--amber)">'+c.to+'</strong> &nbsp;&nbsp; PVI impact: <strong style="color:'+(c.pvi_delta>0?'var(--green)':'var(--red)')+';">'+(c.pvi_delta>0?'+':'')+c.pvi_delta.toFixed(2)+'</strong></div>'+
+      '<div class="req-action">📋 <strong>Required Action:</strong> '+req+'</div>'+
+    '</div>';
+  }).join('');
+
+  var buItems=tierUpgrades.length?tierUpgrades.map(function(s){
+    var b=BENEFITS[s.tierTo.key];
+    return'<div class="bu-item"><div class="bu-tier" style="color:'+s.tierTo.color+'">'+s.tierTo.label+' — '+s.label+'</div>'+
+      '<div class="bu-list">'+(b?b.items.map(function(i){return'✅ '+i;}).join('<br>'):'')+' </div></div>';
+  }).join(''):'<div class="muted" style="font-size:14px;padding:12px">No tier upgrades projected with current what-if selections.</div>';
+
+  var html='<div class="rpt-hdr">'+
+    '<div><div class="rpt-title">📋 PVI What-If Planning Summary</div>'+
+    '<div class="rpt-meta"><strong>'+partnerName+'</strong>  ·  BE ID: '+beId+'  ·  Revenue Size: '+shirtSize+'<br>Month: '+selectedMonth+'  ·  Generated: '+today+'</div></div>'+
+    '<div class="rpt-actions">'+
+      '<button class="btn btn-ghost" onclick="window.print()">🖨️ Print / Save PDF</button>'+
+      '<button class="btn btn-ghost" id="email-btn">📧 Email via Outlook</button>'+
+      '<button class="btn btn-ghost" onclick="switchTab(\'overview\')">← Overview</button>'+
+    '</div></div>'+
+  '<div class="rpt-sec"><h3>Projected PVI Impact</h3>'+
+    '<table class="rpt-table"><thead><tr><th>Architecture</th><th class="r">Current PVI</th><th class="r">What-If PVI</th><th class="r">Δ Change</th><th>Current Tier</th><th>What-If Tier</th></tr></thead>'+
+    '<tbody>'+impactRows+'</tbody></table></div>'+
+  '<div class="rpt-sec"><h3>Proposed Changes &amp; Required Actions</h3>'+changeItems+'</div>'+
+  '<div class="rpt-sec"><h3>Benefits Unlocked by Tier Upgrades</h3>'+buItems+'</div>'+
+  '<div class="rpt-sec" style="font-size:12px;color:var(--muted);border-top:1px solid var(--border);padding-top:14px">'+
+    'Revenue size: <strong>'+shirtSize+'</strong>. Threshold data sourced from Cisco PVI Planner v8.6. Growth % estimates use ~9% per index level. Penetration % uses ~10% per index level. '+
+    'Minimum bookings thresholds apply to Performance and Engagement metrics. Verify exact thresholds with your Cisco Partner Development Manager.'+
+  '</div>';
+
+  document.getElementById('report-content').innerHTML=html;
+  setTimeout(function(){
+    var eb=document.getElementById('email-btn');
+    if(eb)eb.addEventListener('click',function(){
+      var subj='PVI What-If Planning Summary — '+partnerName+' — '+selectedMonth;
+      window.location.href='mailto:?subject='+encodeURIComponent(subj)+'&body='+encodeURIComponent(plainText());
+    });
+  },50);
+}
+
+// ── WHAT-IF HANDLERS ─────────────────────────────────────────────────────────
+function handleWIF(el){
+  var k=el.dataset.key,pk=el.dataset.portfolio;
+  var val;
+  if(el.tagName==='SELECT'){val=parseInt(el.value)||0;}
+  else{val=Math.round(Math.min(10,Math.max(0,parseFloat(el.value)||0)));}
+  el.value=val;
+  var pts=k.split('|');
+  var row=allRows.find(function(r){return r.portfolio===pts[0]&&r.category===pts[1]&&r.measurement===pts[2]&&r.month===pts[3];});
+  if(!row)return;
+  if(Math.round(row.appliedIdx)===val){delete whatIfMap[k];el.classList.add('unch');}
+  else{whatIfMap[k]=val;el.classList.remove('unch');}
+  var p=PORTFOLIOS.find(function(x){return x.key===pk;});
+  if(p){var el2=document.getElementById('ac-'+p.tab);if(el2)el2.innerHTML=buildArch(p);updateSticky(p);}
+  renderRibbon();renderMilestones();updateBanner();
+}
+function resetArch(pk){
+  Object.keys(whatIfMap).forEach(function(k){if(k.startsWith(pk+'|'))delete whatIfMap[k];});
+  var p=PORTFOLIOS.find(function(x){return x.key===pk;});
+  if(p){var el=document.getElementById('ac-'+p.tab);if(el)el.innerHTML=buildArch(p);updateSticky(p);}
+  renderRibbon();renderMilestones();updateBanner();
+}
+function resetAllWhatIf(){whatIfMap={};renderAll();}
+
+// ── TAB SWITCHING ─────────────────────────────────────────────────────────────
+function switchTab(id){
+  document.querySelectorAll('.tab-panel').forEach(function(p){p.classList.remove('active');});
+  var panel=document.getElementById('tab-'+id);if(panel)panel.classList.add('active');
+  var p=PORTFOLIOS.find(function(x){return x.tab===id;});
+  if(p){var el=document.getElementById('ac-'+p.tab);if(el&&!el.innerHTML){el.innerHTML=buildArch(p);}updateSticky(p);}
+  renderRibbon();
+}
+
+// ── PEAK PVI SCORES ──────────────────────────────────────────────────────────
+function getBestMonth(portfolio){
+  var best={pvi:-1,month:''};
+  months.forEach(function(m){
+    var pvi=calcPVI(portfolio,m,false);
+    if(pvi>best.pvi){best.pvi=pvi;best.month=m;}
+  });
+  return best;
+}
+
+function renderPeakCard(){
+  var card=document.getElementById('peak-card');
+  if(!card)return;
+  var archs=PORTFOLIOS.filter(function(p){return allRows.some(function(r){return r.portfolio===p.key;});});
+  if(!archs.length){card.innerHTML='<div class="peak-title">All-Time Peak</div>';return;}
+
+  var html='<div class="peak-title">All-Time Peak PVI</div>';
+  html+=archs.map(function(p){
+    var best=getBestMonth(p.key);
+    if(best.pvi<0)return'';
+    var curr=calcPVI(p.key,selectedMonth,false);
+    var t=getTier(best.pvi);
+    var delta=curr-best.pvi;
+    var isCurrBest=best.month===selectedMonth;
+    // Format the month label nicely
+    var mLabel=(best.month.match(/\(([^)]+)\)/)||[])[1]||best.month;
+
+    return'<div class="peak-row">'+
+      '<div class="peak-arch-name">'+p.icon+' '+p.label+'</div>'+
+      '<div class="peak-score" style="color:'+t.color+'">'+pf(best.pvi)+'</div>'+
+      '<div class="peak-meta">'+
+        '<span class="tier-badge '+t.cls+'" style="font-size:10px;padding:2px 8px">'+t.label+'</span>'+
+      '</div>'+
+      '<div class="peak-meta" style="margin-top:1px">'+
+        '<span class="peak-month">'+mLabel+'</span>'+
+        (isCurrBest
+          ? '<span class="peak-is-current" style="color:var(--green)">★ current month</span>'
+          : '<span style="font-size:11px;color:var(--muted)">Current: '+
+              '<span style="font-family:\'JetBrains Mono\',monospace;font-weight:700;color:'+(delta<0?'var(--red)':'var(--green)')+'">'+pf(curr)+
+              (delta<0?' ('+delta.toFixed(2)+')':' ★')+
+            '</span></span>'
+        )+
+      '</div>'+
+    '</div>';
+  }).join('');
+  card.innerHTML=html;
+}
+
+</script>
+</body>
+</html>
