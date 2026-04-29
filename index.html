@@ -1595,7 +1595,7 @@ async function cpGenerate(){
   if(!dpvLoaded||!hasGaps){
     prompt+="No what-if gaps set. Briefly assess the current cert portfolio and note no additional certs are required for any specific PVI goal. Suggest 2-3 opportunistic improvements if obvious. Keep concise.";
   }else{
-    prompt+="Generate a targeted plan ONLY to fill the gaps above. Format: 1) Gap Summary 2) Recommended Certs (named employee, cert code, points, why qualified) 3) Expiring Cert Alerts 4) Action Table (Employee|Cert|Points|Notes). Only recommend what closes the gaps.";
+    prompt+="Respond with TWO short sections only — no intro, no summary, no other sections:\n\nRECOMMENDED BLACK BELT TRAININGS\nList only the Black Belt training(s) needed to close the Black Belt point gaps above. For each: training name, portfolio, point value, and the 1-2 best-qualified employees to take it (based on their existing cert background). If no Black Belt gap exists, omit this section entirely.\n\nRECOMMENDED PROFESSIONAL CERTIFICATIONS\nList only the Professional-level cert(s) (CCNP or equivalent, 3 pts each) needed to close the Career Cert point gaps above. For each: cert name, exam code, and the 1-2 best-qualified employees to take it. If no Career Cert gap exists, note that briefly and omit detailed recommendations.\n\nBe concise — a few lines per item maximum. No bullet walls. If all gaps are already met, respond with one line: No additional certifications required.";
   }
   try{
     var resp=await fetch("https://api.anthropic.com/v1/messages",{
