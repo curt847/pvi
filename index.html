@@ -397,7 +397,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
       <button class="btn btn-wi hidden" id="summary-btn">📋 What-If Summary</button>
       <button class="btn btn-blue" id="cert-tab-btn" onclick="switchTab('certs')">🎓 Cert Planner</button>
       <button class="btn btn-ghost" id="benefits-btn">🏆 Benefits &amp; Thresholds</button>
-      <div style="display:flex;align-items:center;gap:6px;border-left:1px solid var(--border);padding-left:10px;"><label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;">API Key</label><input id="cp-api-key" type="password" placeholder="sk-ant-..." style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:5px 10px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px;width:200px;outline:none;" /><button onclick="cpToggleKey(this)" style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:5px 8px;color:var(--muted);font-size:11px;cursor:pointer;white-space:nowrap;">Show</button><button onclick="cpTestKey()" style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:5px 10px;color:var(--text);font-size:12px;font-family:'DM Sans',sans-serif;font-weight:700;cursor:pointer;white-space:nowrap;">Test</button><span id="cp-key-status" style="font-size:12px;font-weight:700;white-space:nowrap;"></span></div>
+      <div style="display:flex;align-items:center;gap:6px;border-left:1px solid var(--border);padding-left:10px;"><label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;">API Key</label><input id="cp-api-key" type="password" placeholder="sk-ant-..." style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:5px 10px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px;width:200px;outline:none;" /><button onclick="cpTestKey()" style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:5px 10px;color:var(--text);font-size:12px;font-family:'DM Sans',sans-serif;font-weight:700;cursor:pointer;white-space:nowrap;">Test</button><span id="cp-key-status" style="font-size:12px;font-weight:700;white-space:nowrap;"></span></div>
       <button class="btn btn-ghost" id="reload-btn">↑ New File</button>
     </div>
   </header>
@@ -1463,11 +1463,6 @@ function cpSaveKey(){
   try{if(k)localStorage.setItem("pvi_api_key",k);else localStorage.removeItem("pvi_api_key");}catch(e){}
 }
 
-function cpToggleKey(btn){
-  var inp=document.getElementById("cp-api-key");
-  if(inp.type==="password"){inp.type="text";btn.textContent="Hide";}
-  else{inp.type="password";btn.textContent="Show";}
-}
 function cpTestKey(){
   var k=(document.getElementById("cp-api-key").value||"").trim();
   var status=document.getElementById("cp-key-status");
