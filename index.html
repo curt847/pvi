@@ -37,7 +37,7 @@ function renderPeakCard(){
         '</div>'+
         '<div style="display:flex;flex-direction:column;align-items:center;gap:1px;opacity:'+(mod?'1':'0')+'">'+
           '<span style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--amber)">WHAT-IF</span>'+
-          '<span style="font-family:\'JetBrains Mono\',monospace;font-size:26px;font-weight:800;color:var(--amber);line-height:1">'+pf(w)+'</span>'+
+          '<span style="font-family:\'JetBrains Mono\',monospace;font-size:24px;font-weight:800;color:var(--amber);line-height:1">'+pf(w)+'</span>'+
         '</div>'+
       '</div>'+
       '<div style="display:flex;flex-direction:row;flex-wrap:nowrap;align-items:center;gap:3px;justify-content:center">'+
@@ -100,8 +100,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 .sr-arch{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px 10px;border-right:1px solid var(--border);cursor:pointer;gap:2px;flex:1 1 0;min-width:110px;position:relative;transition:background .15s;}
 .sr-arch:hover{background:rgba(255,255,255,.03);}
 .sr-arch-bot{position:absolute;bottom:-2px;left:0;right:0;height:3px;}
-.sr-arch-name{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);}
-.sr-curr{font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:800;line-height:1;}
+.sr-arch-name{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);}
+.sr-curr{font-family:'JetBrains Mono',monospace;font-size:24px;font-weight:800;line-height:1;}
 .sr-wi{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;color:var(--amber);line-height:1;}
 .sr-tier{font-size:12px;font-weight:700;margin-top:1px;}
 .sr-btns{display:flex;align-items:center;gap:6px;padding:0 12px;border-left:1px solid var(--border);flex-shrink:0;}
@@ -786,7 +786,7 @@ function renderRibbon(){
           '</div>'+
           '<div style="display:flex;flex-direction:column;align-items:center;gap:1px">'+
             '<span style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--amber)">WHAT-IF</span>'+
-            '<span style="font-family:\'JetBrains Mono\',monospace;font-size:26px;font-weight:800;color:var(--amber);line-height:1">'+pf(w)+'</span>'+
+            '<span style="font-family:\'JetBrains Mono\',monospace;font-size:24px;font-weight:800;color:var(--amber);line-height:1">'+pf(w)+'</span>'+
           '</div>'+
         '</div>';
     } else {
@@ -915,7 +915,7 @@ function getMeasCtx(r){
   if(m.includes('managed services')){var lv2=parseInt(maV)||0;var ln2={0:'Not Enrolled',1:'Basic',2:'Intermediate',3:'Advanced'};
     return'<div class="meas-ctx">Level '+lv2+' — '+(ln2[lv2]||'Unknown')+'  <span style="opacity:.6">· 1=Basic  2=Intermediate  3=Advanced</span></div>';}
   if(m.includes('black belt')){var pts=cnum(maV);var cnt=parseInt(maC)||0;
-    return'<div class="meas-ctx">Total Points: <strong style="color:var(--blue2)">'+pts.toFixed(1)+'</strong>'+(cnt?' &nbsp;·&nbsp; '+cnt+' individuals':'')+'</div>';}
+    return'<div class="meas-ctx">Total Points: <strong style="color:var(--blue2)">'+pts.toFixed(1)+'</strong>'+(cnt?' &nbsp;·&nbsp; '+cnt+' certifications':'')+'</div>';}
   if(m.includes('career cert')||m.includes('certification maturity')){
     var tot=(cnum(maV))+(cnum(mbV))+(cnum(mcV));
     var cExp=parseInt(maC)||0,cPro=parseInt(mbC)||0,cAss=parseInt(mcC)||0;
