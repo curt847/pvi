@@ -1594,10 +1594,17 @@ function cpFormatPlan(raw){
     var lvlMatch=t.match(/^LEVEL:\s*(.+)$/i);
     if(lvlMatch){if(cur)cur.currentLevel=lvlMatch[1].trim();return;}
     if(t.indexOf('|')>=0){
-      var p=t.split('|').map(function(x){return x.trim().replace(/\*\*/g,'');});
+      // Skip markdown table separator rows like |---|---| or bare --- cells
+      if(/^\|[\s\-:|]+\|/.test(t)||/^[\-:\s|]+$/.test(t))return;
+      var p=t.replace(/^\||\|$/g,'').split('|').map(function(x){return x.trim().replace(/\*\*/g,'');});
+      // Skip header rows: Training Name, Cert Name, empty first cell, etc.
+      if(!p[0]||/^[-\s]+$/.test(p[0]))return;
+      if(/^(training\s*name|cert\s*name|name|#)$/i.test(p[0]))return;
       if(!cur)cur={title:'',items:[],total:null,candidates:[],currentLevel:null};
       cur.items.push({name:p[0],pts:p[1]||'',level:cur?cur.currentLevel:null});return;
     }
+    // Skip pure separator/filler lines
+    if(/^[-=#*\s]+$/.test(t)||/^\d+$/.test(t))return;
     if(!cur)cur={title:'',items:[],total:null,candidates:[],currentLevel:null,plain:[]};
     if(!cur.plain)cur.plain=[];
     cur.plain.push(t.replace(/\*\*/g,''));
@@ -1735,49 +1742,82 @@ async function cpGenerate(){
 
 function ovPrint(){
   var today=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
-
-  // ── Capture peak card HTML ──
-  var peakEl=document.getElementById('peak-card');
-  var peakHTML=peakEl?peakEl.innerHTML:'';
-
-  // ── Capture milestone tracker HTML ──
-  var msEl=document.getElementById('ms-wrap');
-  var msHTML=msEl?msEl.innerHTML:'';
-
-  // ── Build scores table rows from PORTFOLIOS ──
   var archs=PORTFOLIOS.filter(function(p){return allRows.some(function(r){return r.portfolio===p.key;});});
+  var anyMod=archs.some(function(p){return isMod(p.key,selectedMonth);});
+
+  // ── Scores table ──
   var scoreRows=archs.map(function(p){
     var a=calcPVI(p.key,selectedMonth,false),w=calcPVI(p.key,selectedMonth,true);
     var mod=isMod(p.key,selectedMonth),t=getTier(a),wt=getTier(w);
     return'<tr>'
       +'<td style="font-size:15px;font-weight:700;">'+p.icon+' '+p.label+'</td>'
       +'<td style="font-family:monospace;font-size:20px;font-weight:800;color:'+t.color+'">'+pf(a)+'</td>'
-      +(mod?'<td style="font-family:monospace;font-size:20px;font-weight:800;color:#d97706">'+pf(w)+'</td>':'<td style="color:#888;font-size:14px;">—</td>')
-      +'<td><span style="display:inline-block;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700;border:1px solid '+t.color+';color:'+t.color+';background:'+t.color+'22">'+t.label+'</span>'
-        +(mod&&wt.key!==t.key?' → <span style="display:inline-block;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700;border:1px solid '+wt.color+';color:'+wt.color+';background:'+wt.color+'22">'+wt.label+'</span>':'')
+      +(anyMod?(mod?'<td style="font-family:monospace;font-size:20px;font-weight:800;color:#d97706">'+pf(w)+'</td>':'<td style="color:#aaa;font-size:14px;text-align:center;">—</td>'):'')
+      +'<td><span style="display:inline-block;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700;border:1px solid '+t.color+';color:'+t.color+';">'+t.label+'</span>'
+        +(mod&&wt.key!==t.key?' → <span style="display:inline-block;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700;border:1px solid #d97706;color:#d97706;">'+wt.label+'</span>':'')
       +'</td>'
     +'</tr>';
+  }).join('');
+
+  // ── All-time peak rows ──
+  var peakRows=archs.map(function(p){
+    var best=getBestMonth(p.key);
+    var t=getTier(best.pvi);
+    var mo=(best.month.match(/\(([^)]+)\)/)||[])[1]||best.month.substring(4,8)||best.month;
+    return'<tr>'
+      +'<td style="font-size:15px;font-weight:700;">'+p.icon+' '+p.label+'</td>'
+      +'<td style="font-family:monospace;font-size:20px;font-weight:800;color:'+t.color+'">'+pf(best.pvi)+'</td>'
+      +'<td style="font-size:13px;color:#666;">'+mo+'</td>'
+      +'<td><span style="display:inline-block;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700;border:1px solid '+t.color+';color:'+t.color+';">'+t.label+'</span></td>'
+    +'</tr>';
+  }).join('');
+
+  // ── Milestone tracker built from data ──
+  var msRows=archs.map(function(p){
+    var a=calcPVI(p.key,selectedMonth,false),w=calcPVI(p.key,selectedMonth,true);
+    var mod=isMod(p.key,selectedMonth),t=getTier(a),wt=getTier(w);
+    var ap=Math.min(100,(a/MAX)*100).toFixed(1),wp=Math.min(100,(w/MAX)*100).toFixed(1);
+    var mkrs=MILESTONES.map(function(m){
+      if(m.pvi===0)return'';
+      var mp=(m.pvi/MAX)*100,ach=a>=m.pvi,wach=mod&&w>=m.pvi;
+      var tickCol=ach?m.color:wach?'#d97706':'#cbd5e1';
+      var lblCol=ach?m.color:wach?'#d97706':'#94a3b8';
+      var lns=m.label.split('\n');
+      return'<div style="position:absolute;left:'+mp+'%;top:-3px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;">'
+        +'<div style="width:2px;height:20px;border-radius:1px;background:'+tickCol+';"></div>'
+        +'<div style="position:absolute;top:24px;font-size:9px;font-weight:700;white-space:nowrap;transform:translateX(-50%);text-align:center;line-height:1.4;color:'+lblCol+';">'+lns[0]+'<br>'+lns[1]+'</div>'
+        +'</div>';
+    }).join('');
+    return'<div style="margin-bottom:32px;">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px;">'
+        +'<div style="font-size:15px;font-weight:700;">'+p.icon+' '+p.label+'</div>'
+        +'<div style="display:flex;align-items:center;gap:14px;">'
+          +'<span style="font-size:11px;font-weight:700;text-transform:uppercase;color:#94a3b8;letter-spacing:.05em;">Current</span>'
+          +'<span style="font-family:monospace;font-size:26px;font-weight:800;color:'+t.color+';">'+pf(a)+'</span>'
+          +(mod?'<span style="font-size:11px;font-weight:700;text-transform:uppercase;color:#d97706;letter-spacing:.05em;">What-If</span>'
+              +'<span style="font-family:monospace;font-size:26px;font-weight:800;color:#d97706;">'+pf(w)+'</span>':'')
+          +'<span style="display:inline-block;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700;border:1px solid '+t.color+';color:'+t.color+';">'+t.label+'</span>'
+          +(mod&&wt.key!==t.key?'<span style="color:#94a3b8;font-size:11px;">→</span><span style="display:inline-block;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700;border:1px solid #d97706;color:#d97706;">'+wt.label+'</span>':'')
+        +'</div>'
+      +'</div>'
+      +'<div style="position:relative;height:14px;background:#e2e8f0;border-radius:7px;">'
+        +(mod?'<div style="position:absolute;left:0;top:0;height:100%;border-radius:7px;background:#d97706;opacity:.35;width:'+wp+'%;"></div>':'')
+        +'<div style="position:absolute;left:0;top:0;height:100%;border-radius:7px;background:'+t.color+';width:'+ap+'%;"></div>'
+        +mkrs
+      +'</div>'
+    +'</div>';
   }).join('');
 
   var styl='*{box-sizing:border-box;margin:0;padding:0;}'
     +'body{font-family:"Segoe UI",sans-serif;background:#fff;color:#111;padding:36px 44px;font-size:14px;line-height:1.6;}'
     +'h1{color:#049fd9;font-size:22px;font-weight:800;margin-bottom:4px;}'
     +'.meta{color:#666;font-size:12px;padding-bottom:16px;border-bottom:3px solid #049fd9;margin-bottom:24px;}'
-    +'h2{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin-bottom:12px;}'
-    +'.section{margin-bottom:28px;}'
+    +'h2{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin-bottom:14px;}'
+    +'.section{margin-bottom:30px;}'
     +'table{width:100%;border-collapse:collapse;}'
     +'th{background:#f1f5f9;padding:10px 14px;text-align:left;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#64748b;border-bottom:2px solid #e2e8f0;}'
     +'td{padding:11px 14px;border-bottom:1px solid #f1f5f9;vertical-align:middle;}'
     +'tr:last-child td{border-bottom:none;}'
-    +'.ms-block{margin-bottom:18px;}'
-    +'.ms-arch-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px;}'
-    +'.ms-arch-name{font-size:15px;font-weight:700;}'
-    +'.ms-scores{display:flex;align-items:center;gap:12px;}'
-    +'.ms-track{position:relative;height:14px;background:#e2e8f0;border-radius:7px;margin-bottom:28px;}'
-    +'.ms-fill{position:absolute;left:0;top:0;height:100%;border-radius:7px;}'
-    +'.ms-marker{position:absolute;top:-3px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;}'
-    +'.ms-tick{width:2px;height:20px;border-radius:1px;}'
-    +'.ms-mlbl{position:absolute;top:24px;font-size:10px;font-weight:700;white-space:nowrap;transform:translateX(-50%);text-align:center;line-height:1.4;}'
     +'@media print{button{display:none!important}body{padding:20px 28px;}}';
 
   var pw=window.open('','_blank','width=980,height=750');
@@ -1785,17 +1825,22 @@ function ovPrint(){
     +'<h1>PVI Partner Overview</h1>'
     +'<div class="meta"><strong>'+(partnerName||'')+'</strong>'+(beId?' &middot; BE '+beId:'')+' &middot; Month: '+(selectedMonth||'')+' &middot; Size: '+shirtSize+' &middot; Generated: '+today+'</div>'
 
-    +'<div class="section"><h2>Architecture PVI Scores</h2>'
-    +'<table><thead><tr><th>Architecture</th><th>Current PVI</th><th>What-If PVI</th><th>Tier</th></tr></thead>'
+    +'<div class="section"><h2>Architecture PVI Scores — '+selectedMonth+'</h2>'
+    +'<table><thead><tr><th>Architecture</th><th>Current PVI</th>'+(anyMod?'<th>What-If PVI</th>':'')+'<th>Tier</th></tr></thead>'
     +'<tbody>'+scoreRows+'</tbody></table></div>'
 
+    +'<div class="section"><h2>All-Time Peak PVI</h2>'
+    +'<table><thead><tr><th>Architecture</th><th>Peak PVI</th><th>Month</th><th>Tier</th></tr></thead>'
+    +'<tbody>'+peakRows+'</tbody></table></div>'
+
     +'<div class="section"><h2>Partner Milestone Tracker</h2>'
-    +'<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:20px;">'+msHTML+'</div></div>'
+    +'<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:24px 28px 8px;">'+msRows+'</div></div>'
 
     +'<br><button onclick="window.print()" style="background:#049fd9;color:#fff;border:none;padding:10px 22px;font-size:14px;font-weight:700;border-radius:6px;cursor:pointer;">🖨️ Print / Save as PDF</button>'
     +'</body></html>');
   pw.document.close();
 }
+
 
 function cpPrintPlan(){
   var bodyEl=document.getElementById('cp-ai-body');
