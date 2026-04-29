@@ -1554,10 +1554,10 @@ async function cpGenerate(){
     var resp=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:2500,messages:[{role:'user',content:prompt}]})
+      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:2500,messages:[{role:'user',content:prompt}]})
     });
     var data=await resp.json();
-    if(data.error)throw new Error(data.error.message);
+    if(data.error)throw new Error(data.error.type+': '+data.error.message);
     body.innerHTML=cpFormatPlan(data.content[0].text);
     document.getElementById('cp-print-btn').style.display='';
     document.getElementById('cp-email-btn').style.display='';
