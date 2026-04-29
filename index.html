@@ -381,11 +381,11 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
     <div class="upload-card">
       <div style="margin-bottom:14px"><svg width="60" height="37" viewBox="0 0 64 40" fill="none"><rect x="0" y="16" width="8" height="8" rx="2" fill="#049fd9"/><rect x="10" y="8" width="8" height="16" rx="2" fill="#049fd9"/><rect x="20" y="0" width="8" height="24" rx="2" fill="#049fd9"/><rect x="30" y="4" width="8" height="20" rx="2" fill="#049fd9"/><rect x="40" y="0" width="8" height="24" rx="2" fill="#049fd9"/><rect x="50" y="8" width="8" height="16" rx="2" fill="#049fd9"/></svg></div>
       <h2>Cisco PVI Planner</h2>
-      <p>Upload your <strong style="color:#dde7f8">Partner Assessment DPV</strong> file. Use <strong style="color:#f59e0b">What-If</strong> mode to model improvements, then generate a detailed action plan to share with your partner.</p>
+      <p>Upload your <strong style="color:#dde7f8">Partner Assessment DPV</strong> file. Use <strong style="color:#f59e0b">What-If</strong> mode to model improvements, then generate a detailed action plan.</p>
       <div class="drop-zone" id="drop-zone"><div class="dz-icon">📁</div><div class="dz-label">Drop Partner_Assessment_DPV.xlsx here</div><div class="dz-sub">or click to browse  ·  .xlsx / .xls</div></div>
       <button class="btn btn-blue" id="browse-btn" style="width:100%;padding:12px;font-size:15px">Browse File</button>
       <input type="file" id="file-input" accept=".xlsx,.xls" class="hidden">
-      <div class="upload-meta">Required: <code>Portfolio</code> <code>Category</code> <code>Category Weight</code> <code>Measurement</code> <code>Measurement Weight</code> <code>Fiscal Month</code> <code>Achieved Metric</code> <code>Applied Index</code> <code>Measure A Value</code> <code>Measure B Value</code></div>
+
     </div>
   </div>
 </div>
@@ -1601,7 +1601,12 @@ function cpFormatPlan(raw){
       if(!p[0]||/^[-\s]+$/.test(p[0]))return;
       if(/^(training\s*name|cert\s*name|name|#)$/i.test(p[0]))return;
       if(!cur)cur={title:'',items:[],total:null,candidates:[],currentLevel:null};
-      cur.items.push({name:p[0],pts:p[1]||'',level:cur?cur.currentLevel:null});return;
+      // If first column is just a number, shift: "1 | Training Name | 2 pts"
+      var name=p[0],pts=p[1]||'';
+      if(/^\d+$/.test(name)&&p.length>=2){name=p[1];pts=p[2]||'';}
+      // Skip if name is still empty or looks like a pts-only value
+      if(!name||/^[-\s]+$/.test(name))return;
+      cur.items.push({name:name,pts:pts,level:cur?cur.currentLevel:null});return;
     }
     // Skip pure separator/filler lines
     if(/^[-=#*\s]+$/.test(t)||/^\d+$/.test(t))return;
@@ -1773,41 +1778,6 @@ function ovPrint(){
   }).join('');
 
   // ── Milestone tracker built from data ──
-  var msRows=archs.map(function(p){
-    var a=calcPVI(p.key,selectedMonth,false),w=calcPVI(p.key,selectedMonth,true);
-    var mod=isMod(p.key,selectedMonth),t=getTier(a),wt=getTier(w);
-    var ap=Math.min(100,(a/MAX)*100).toFixed(1),wp=Math.min(100,(w/MAX)*100).toFixed(1);
-    var mkrs=MILESTONES.map(function(m){
-      if(m.pvi===0)return'';
-      var mp=(m.pvi/MAX)*100,ach=a>=m.pvi,wach=mod&&w>=m.pvi;
-      var tickCol=ach?m.color:wach?'#d97706':'#cbd5e1';
-      var lblCol=ach?m.color:wach?'#d97706':'#94a3b8';
-      var lns=m.label.split('\n');
-      return'<div style="position:absolute;left:'+mp+'%;top:-3px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;">'
-        +'<div style="width:2px;height:20px;border-radius:1px;background:'+tickCol+';"></div>'
-        +'<div style="position:absolute;top:24px;font-size:9px;font-weight:700;white-space:nowrap;transform:translateX(-50%);text-align:center;line-height:1.4;color:'+lblCol+';">'+lns[0]+'<br>'+lns[1]+'</div>'
-        +'</div>';
-    }).join('');
-    return'<div style="margin-bottom:32px;">'
-      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px;">'
-        +'<div style="font-size:15px;font-weight:700;">'+p.icon+' '+p.label+'</div>'
-        +'<div style="display:flex;align-items:center;gap:14px;">'
-          +'<span style="font-size:11px;font-weight:700;text-transform:uppercase;color:#94a3b8;letter-spacing:.05em;">Current</span>'
-          +'<span style="font-family:monospace;font-size:26px;font-weight:800;color:'+t.color+';">'+pf(a)+'</span>'
-          +(mod?'<span style="font-size:11px;font-weight:700;text-transform:uppercase;color:#d97706;letter-spacing:.05em;">What-If</span>'
-              +'<span style="font-family:monospace;font-size:26px;font-weight:800;color:#d97706;">'+pf(w)+'</span>':'')
-          +'<span style="display:inline-block;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700;border:1px solid '+t.color+';color:'+t.color+';">'+t.label+'</span>'
-          +(mod&&wt.key!==t.key?'<span style="color:#94a3b8;font-size:11px;">→</span><span style="display:inline-block;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700;border:1px solid #d97706;color:#d97706;">'+wt.label+'</span>':'')
-        +'</div>'
-      +'</div>'
-      +'<div style="position:relative;height:14px;background:#e2e8f0;border-radius:7px;">'
-        +(mod?'<div style="position:absolute;left:0;top:0;height:100%;border-radius:7px;background:#d97706;opacity:.35;width:'+wp+'%;"></div>':'')
-        +'<div style="position:absolute;left:0;top:0;height:100%;border-radius:7px;background:'+t.color+';width:'+ap+'%;"></div>'
-        +mkrs
-      +'</div>'
-    +'</div>';
-  }).join('');
-
   var styl='*{box-sizing:border-box;margin:0;padding:0;}'
     +'body{font-family:"Segoe UI",sans-serif;background:#fff;color:#111;padding:36px 44px;font-size:14px;line-height:1.6;}'
     +'h1{color:#049fd9;font-size:22px;font-weight:800;margin-bottom:4px;}'
@@ -1832,9 +1802,6 @@ function ovPrint(){
     +'<div class="section"><h2>All-Time Peak PVI</h2>'
     +'<table><thead><tr><th>Architecture</th><th>Peak PVI</th><th>Month</th><th>Tier</th></tr></thead>'
     +'<tbody>'+peakRows+'</tbody></table></div>'
-
-    +'<div class="section"><h2>Partner Milestone Tracker</h2>'
-    +'<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:24px 28px 8px;">'+msRows+'</div></div>'
 
     +'<br><button onclick="window.print()" style="background:#049fd9;color:#fff;border:none;padding:10px 22px;font-size:14px;font-weight:700;border-radius:6px;cursor:pointer;">🖨️ Print / Save as PDF</button>'
     +'</body></html>');
