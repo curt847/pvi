@@ -517,15 +517,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 </div>
 
 <script>
-// ══════════════════════════════════════════════════════════════════════
-// ★  YOUR ANTHROPIC API KEY
-//    Paste your sk-ant-... key between the quotes below and save the file.
-//    Anyone you share this file with will be able to use it.
-//    If the key is ever compromised, generate a new one at console.anthropic.com
-//    and paste it here again.
-// ══════════════════════════════════════════════════════════════════════
-var ANTHROPIC_API_KEY = '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';  // ← paste your key here
-
 // ── THRESHOLD TABLES (exact from Cisco PVI Planner v8.6 Metric Formulas sheet) ──
 // Each array = [threshold for index 1, 2, 3, ... 10]
 // Sizes: XL=>$100M  L=>$25M-$100M  M=>$10M-$25M  S=>$2M-$10M  XS=<=$2M
@@ -1467,9 +1458,7 @@ function cpRenderRoster(){
 }
 
 function cpSaveKey(){}
-function cpLoadKey(){
-  // Key comes from the ANTHROPIC_API_KEY constant at the top of this file
-}
+function cpLoadKey(){}
 
 
 function cpFormatPlan(raw){
@@ -1511,8 +1500,8 @@ function cpFormatPlan(raw){
 }
 
 async function cpGenerate(){
-  var apiKey=(typeof ANTHROPIC_API_KEY!=='undefined'?ANTHROPIC_API_KEY:'').trim();
-  if(!apiKey){alert('API key not set. Open this file in a text editor and paste your sk-ant-... key into the ANTHROPIC_API_KEY constant near the top of the script.');return;}
+  var apiKey=(document.getElementById('cp-api-key').value||'').trim();
+  if(!apiKey){alert('Please paste your Anthropic API key into the API Key field in the top-right corner.');return;}
   if(!Object.keys(cpEmployees).length){alert('Please upload a personnel report first.');return;}
   var btn=document.getElementById('cp-gen-btn'),out=document.getElementById('cp-ai-out'),body=document.getElementById('cp-ai-body');
   btn.disabled=true;btn.innerHTML='<span class="cp-spinner"></span> Analyzing...';
