@@ -527,6 +527,18 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
             <option value="points">Sort: PVI Points (High-Low)</option>
           </select>
         </div>
+        <div id="cp-arch-stats" style="display:none;background:rgba(4,159,217,.06);border:1px solid rgba(4,159,217,.2);border-radius:10px;padding:14px 18px;margin-bottom:14px;">
+          <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:10px;" id="cp-arch-stats-title">Portfolio Cert Summary</div>
+          <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:center;">
+            <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;">Expert</div><div style="font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:800;color:#f59e0b;line-height:1;" id="cp-as-expert">—</div><div style="font-size:11px;color:var(--muted);">10 pts each</div></div>
+            <div style="width:1px;height:50px;background:var(--border);"></div>
+            <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;">Professional</div><div style="font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:800;color:#a78bfa;line-height:1;" id="cp-as-prof">—</div><div style="font-size:11px;color:var(--muted);">3 pts each</div></div>
+            <div style="width:1px;height:50px;background:var(--border);"></div>
+            <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;">Associate</div><div style="font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:800;color:#22c55e;line-height:1;" id="cp-as-assoc">—</div><div style="font-size:11px;color:var(--muted);">1 pt each</div></div>
+            <div style="width:1px;height:50px;background:var(--border);"></div>
+            <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;">Total PVI Pts</div><div style="font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:800;color:#fb923c;line-height:1;" id="cp-as-pts">—</div><div style="font-size:11px;color:var(--muted);">career cert score</div></div>
+          </div>
+        </div>
         <div class="cp-tbl-wrap">
           <div class="cp-tbl-hdr"><h3>Certification Roster</h3>
             <div style="display:flex;align-items:center;gap:8px;">
@@ -1461,11 +1473,14 @@ function cpProcessData(rows){
     var lvls=cpGetLevel(code,desc);
     var expiryStatus=null;
     if(expiryDate){expiryStatus=expiryDate<today?'expired':expiryDate<sixMo?'soon':'ok';}
+    var canonicalCode=CP_CERT_ALIAS[code]||code;
     lvls.forEach(function(lvl){
-      // Avoid duplicate (code+portfolio) entries for the same person
-      var alreadyHave=cpEmployees[key].certs.some(function(x){return x.code===code&&x.portfolio===lvl.portfolio;});
+      // Dedup by CANONICAL cert code + portfolio so exam variants (SCOR701V1) and cert codes (CCS-SCORE) don't double-count
+      var alreadyHave=cpEmployees[key].certs.some(function(x){return x.canonicalCode===canonicalCode&&x.portfolio===lvl.portfolio;});
       if(!alreadyHave){
-        cpEmployees[key].certs.push({code:code,desc:desc,expiryDate:expiryDate,level:lvl.level,points:lvl.points,portfolio:lvl.portfolio,isPVI:lvl.points>0,expiryStatus:expiryStatus});
+        // Prefer the CCS-style code display name if canonical differs from raw
+        var displayCode=canonicalCode!==code?canonicalCode:code;
+        cpEmployees[key].certs.push({code:displayCode,rawCode:code,canonicalCode:canonicalCode,desc:desc,expiryDate:expiryDate,level:lvl.level,points:lvl.points,portfolio:lvl.portfolio,isPVI:lvl.points>0,expiryStatus:expiryStatus});
       }
     });
   });
@@ -1531,6 +1546,33 @@ function cpRenderRoster(){
     if(sortF==='expired'&&!hasExpired)return;
     rows.push({emp:emp,pviCerts:pviCerts,otherCerts:otherCerts,totalPts:totalPts,soonest:soonest,hasExpired:hasExpired,hasSoon:hasSoon});
   });
+
+  // Update arch stats bar
+  var archBar=document.getElementById('cp-arch-stats');
+  if(portF&&archBar){
+    var asExpert=0,asProf=0,asAssoc=0,asPts=0,seenCanon={};
+    empArr.forEach(function(emp){
+      if(pF&&emp.name!==pF)return;
+      emp.certs.forEach(function(c){
+        if(!c.isPVI||c.portfolio!==portF)return;
+        var ck=c.canonicalCode+'|'+c.portfolio;
+        if(seenCanon[emp.name+'|'+ck])return;
+        seenCanon[emp.name+'|'+ck]=true;
+        if(c.level==='Expert')asExpert++;
+        else if(c.level==='Professional')asProf++;
+        else asAssoc++;
+        asPts+=c.points;
+      });
+    });
+    document.getElementById('cp-arch-stats-title').textContent=portF+' — Portfolio Cert Summary';
+    document.getElementById('cp-as-expert').textContent=asExpert;
+    document.getElementById('cp-as-prof').textContent=asProf;
+    document.getElementById('cp-as-assoc').textContent=asAssoc;
+    document.getElementById('cp-as-pts').textContent=asPts.toFixed(0);
+    archBar.style.display='block';
+  } else if(archBar){
+    archBar.style.display='none';
+  }
 
   // Sort
   if(sortF==='expiry'||sortF==='expired'){
@@ -1924,6 +1966,7 @@ function cpPrintRoster(){
   var tbl=document.getElementById('cp-tbl-body');
   if(!tbl||!tbl.innerHTML.trim()){alert('No roster data to print. Upload a personnel report first.');return;}
   var today=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+  var portFilter=document.getElementById('cp-port-sel')?document.getElementById('cp-port-sel').value:'';
   var rows=tbl.querySelectorAll('tr');
   var tableRows='';
   rows.forEach(function(tr){
@@ -1987,10 +2030,46 @@ function cpPrintRoster(){
     +'</div>';
 
   var pw=window.open('','_blank','width=1100,height=800');
-  pw.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Certification Roster</title><style>'+styl+'</style></head><body>'
-    +'<h1>Certification Roster</h1>'
-    +'<div class="meta"><strong>'+(partnerName||'')+'</strong> &middot; Generated: '+today+' &middot; Month: '+(selectedMonth||'')+' &middot; Size: '+shirtSize+'</div>'
+  var archBadge=portFilter
+    ?'<span style="display:inline-block;margin-left:14px;padding:3px 14px;border-radius:20px;font-size:14px;font-weight:700;background:#e0f2fe;border:1px solid #7dd3fc;color:#0369a1;vertical-align:middle;">'+portFilter+'</span>'
+    :'';
+
+  // Build per-portfolio cert stats for PDF
+  var pdfArchStats='';
+  if(portFilter){
+    var asExpert=0,asProf=0,asAssoc=0,asPts=0,seenPdf={};
+    Object.values(cpEmployees).forEach(function(emp){
+      emp.certs.forEach(function(c){
+        if(!c.isPVI||c.portfolio!==portFilter)return;
+        var ck=emp.name+'|'+c.canonicalCode+'|'+c.portfolio;
+        if(seenPdf[ck])return;
+        seenPdf[ck]=true;
+        if(c.level==='Expert')asExpert++;
+        else if(c.level==='Professional')asProf++;
+        else asAssoc++;
+        asPts+=c.points;
+      });
+    });
+    pdfArchStats='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px;padding:14px 16px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;">'
+      +'<div><div style="font-size:10px;font-weight:800;text-transform:uppercase;color:#64748b;letter-spacing:.05em;margin-bottom:4px;">Expert</div>'
+        +'<div style="font-family:monospace;font-size:28px;font-weight:800;color:#d97706;line-height:1;">'+asExpert+'</div>'
+        +'<div style="font-size:11px;color:#94a3b8;margin-top:3px;">10 pts each</div></div>'
+      +'<div><div style="font-size:10px;font-weight:800;text-transform:uppercase;color:#64748b;letter-spacing:.05em;margin-bottom:4px;">Professional</div>'
+        +'<div style="font-family:monospace;font-size:28px;font-weight:800;color:#7c3aed;line-height:1;">'+asProf+'</div>'
+        +'<div style="font-size:11px;color:#94a3b8;margin-top:3px;">3 pts each</div></div>'
+      +'<div><div style="font-size:10px;font-weight:800;text-transform:uppercase;color:#64748b;letter-spacing:.05em;margin-bottom:4px;">Associate</div>'
+        +'<div style="font-family:monospace;font-size:28px;font-weight:800;color:#15803d;line-height:1;">'+asAssoc+'</div>'
+        +'<div style="font-size:11px;color:#94a3b8;margin-top:3px;">1 pt each</div></div>'
+      +'<div><div style="font-size:10px;font-weight:800;text-transform:uppercase;color:#64748b;letter-spacing:.05em;margin-bottom:4px;">Total PVI Pts</div>'
+        +'<div style="font-family:monospace;font-size:28px;font-weight:800;color:#ea580c;line-height:1;">'+asPts.toFixed(0)+'</div>'
+        +'<div style="font-size:11px;color:#94a3b8;margin-top:3px;">career cert score</div></div>'
+      +'</div>';
+  }
+  pw.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Certification Roster'+(portFilter?' — '+portFilter:'')+' </title><style>'+styl+'</style></head><body>'
+    +'<h1>Certification Roster '+archBadge+'</h1>'
+    +'<div class="meta"><strong>'+(partnerName||'')+'</strong> &middot; Generated: '+today+' &middot; Month: '+(selectedMonth||'')+' &middot; Size: '+shirtSize+(portFilter?' &middot; Filtered: <strong>'+portFilter+'</strong>':'')+' </div>'
     +summaryBoxes
+    +(portFilter?pdfArchStats:'')
     +'<table><thead><tr><th>Employee</th><th>Active PVI Certs</th><th>PVI Pts</th><th>Other Certs</th></tr></thead><tbody>'+tableRows+'</tbody></table>'
     +'<br><button onclick="window.print()" style="background:#049fd9;color:#fff;border:none;padding:9px 20px;font-size:13px;font-weight:700;border-radius:6px;cursor:pointer;margin-top:16px;">Print / Save as PDF</button>'
     +'</body></html>');
