@@ -1574,6 +1574,9 @@ function cpLoadKey(){
 
 
 function cpFormatPlan(raw){
+  // Strip any reasoning/preamble before the first ** section header
+  var firstHdr=raw.indexOf('**');
+  if(firstHdr>0)raw=raw.slice(firstHdr);
   var lines=raw.split('\n'),sections=[],cur=null;
   lines.forEach(function(line){
     var t=line.trim();if(!t)return;
@@ -1715,14 +1718,13 @@ async function cpGenerate(){
     var resp=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:3000,messages:[
-        {role:'user',content:prompt},
-        {role:'assistant',content:'**RECOMMENDED'}
-      ]})
+      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:3000,
+        system:'You are a Cisco 360 Partner Program expert. Output ONLY the pipe-delimited certification plan. Do not write any reasoning, analysis, thinking, or explanation. Begin your response directly with the first ** section header. Never output anything before the first ** header.',
+        messages:[{role:'user',content:prompt}]})
     });
     var data=await resp.json();
     if(data.error)throw new Error(data.error.type+': '+data.error.message);
-    body.innerHTML=cpFormatPlan('**RECOMMENDED'+data.content[0].text);
+    body.innerHTML=cpFormatPlan(data.content[0].text);
     document.getElementById('cp-print-btn').style.display='';
     document.getElementById('cp-email-btn').style.display='';
   }catch(err){
