@@ -298,8 +298,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 .cp-item-name{padding:10px 14px;font-size:14px;font-weight:600;color:var(--text);display:flex;align-items:center;}
 .cp-item-pts{padding:10px 14px;background:var(--bg3);font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:800;color:var(--amber);display:flex;align-items:center;white-space:nowrap;border-left:1px solid var(--border);}
 .cp-item-who{padding:10px 14px;background:var(--bg3);font-size:13px;color:#e2e8f0;display:flex;align-items:center;border-left:1px solid var(--border);min-width:180px;}
-.cp-total{display:flex;justify-content:space-between;align-items:center;padding:8px 14px;margin-top:4px;background:rgba(4,159,217,.06);border:1px solid rgba(4,159,217,.2);border-radius:6px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--blue2);}
-.cp-total-score{font-family:'JetBrains Mono',monospace;font-size:15px;color:var(--green);}
+.cp-total{display:flex;justify-content:flex-end;padding:6px 14px 2px;}
+.cp-total-score{font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:800;color:var(--green);}
 .cp-plain{font-size:13px;color:var(--muted);padding:8px 0;}
 /* CERT PLANNER PANEL */
 .cp-gap-bar{background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.3);border-radius:10px;padding:14px 18px;margin-bottom:18px;}
@@ -1581,8 +1581,7 @@ function cpFormatPlan(raw){
     });
     if(sec.total){
       var m=sec.total.match(/([\d.]+)\s*\/\s*([\d.]+)/);
-      var lbl=sec.total.replace(m?m[0]:'','').replace(/\bNEEDED\b/i,'').replace(/:\s*$/,'').trim();
-      o+='<div class="cp-total"><span>'+lbl+'</span><span class="cp-total-score">'+(m?m[1]:'')+' / '+(m?m[2]:'')+' pts needed</span></div>';
+      if(m)o+='<div class="cp-total"><span class="cp-total-score">'+m[1]+' / '+m[2]+' pts</span></div>';
     }
     return o+'</div>';
   }).join('');
@@ -1626,20 +1625,19 @@ async function cpGenerate(){
   if(!dpvLoaded||!hasGaps){
     prompt+='No what-if gaps set. Respond with one line only: No additional certifications required.';
   }else{
-    prompt+='Close each gap completely — your recommendations must sum to AT LEAST the gap points shown.\n'
+    prompt+='Close each gap completely with MINIMUM overshoot. Before adding each item, check the running total. Prefer lower-value certs when they close the gap more cleanly. Only use Expert-level certs (10pts) if the remaining gap is near 10 or no lower cert closes it better. Example: gap=11pts — four CCNPs (12pts total) is better than two CCNPs + one CCIE (16pts total).\n'
       +'Use EXACTLY this pipe-delimited format. One item per line. No intro, no prose, no other sections.\n\n'
       +'IMPORTANT:\n'
-      +'- Employee data shows CAREER CERTS only, not completed Black Belt trainings — do not assume any BB is already done.\n'
-      +'- For each BB training and cert, list ALL employees who are a good fit — no limit on candidates. 1 person or 8, whoever genuinely fits.\n'
-      +'- Do NOT default to Meraki just because it is easy or has many entries. Match the BB training to the portfolio gap and the team actual expertise. If the gap is Networking and the team has CCNP Enterprise, CCIE, or wireless certs, recommend BBs that align with that depth.\n'
-      +'- Pick BB trainings where the candidates have relevant cert background, not just the shortest path to points.\n\n'
+      +'- Employee data shows CAREER CERTS only, not completed Black Belt trainings.\n'
+      +'- List all employees who are a good fit — no cap on candidates.\n'
+      +'- Do NOT default to Meraki. Match BB trainings to the gap portfolio and team cert depth.\n\n'
       +'**RECOMMENDED BLACK BELT TRAININGS**\n'
       +'Training Name | X pts | Up to 5 best-fit candidates (comma separated, most qualified first)\n'
-      +'(add lines until BB point total meets or exceeds the BB gap)\n'
+      +'(add lines until BB point total meets or exceeds the BB gap with minimum overshoot)\n'
       +'TOTAL BB PTS ADDED: X / X NEEDED\n\n'
       +'**RECOMMENDED PROFESSIONAL CERTIFICATIONS**\n'
       +'Cert Name (Exam Code) | X pts | Up to 5 best-fit candidates (comma separated, most qualified first)\n'
-      +'(add lines until Cert point total meets or exceeds the Career Cert gap)\n'
+      +'(add lines until Cert point total meets or exceeds the Career Cert gap with minimum overshoot)\n'
       +'TOTAL CERT PTS ADDED: X / X NEEDED\n\n'
       +'Omit any section where no gap exists. If both gaps are already met: No additional certifications required.';
   }
