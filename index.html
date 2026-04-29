@@ -528,15 +528,28 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
           </select>
         </div>
         <div id="cp-arch-stats" style="display:none;background:rgba(4,159,217,.06);border:1px solid rgba(4,159,217,.2);border-radius:10px;padding:14px 18px;margin-bottom:14px;">
-          <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:10px;" id="cp-arch-stats-title">Portfolio Cert Summary</div>
+          <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:12px;" id="cp-arch-stats-title">Portfolio Cert Summary</div>
+          <!-- PXP Official row -->
+          <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--blue);margin-bottom:6px;">&#9733; PXP Official (from DPV)</div>
+          <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:center;padding-bottom:12px;border-bottom:1px solid var(--border);margin-bottom:12px;">
+            <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;">Expert</div><div style="font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:800;color:#f59e0b;line-height:1;" id="cp-as-pxp-expert">—</div><div style="font-size:11px;color:var(--muted);">10 pts each</div></div>
+            <div style="width:1px;height:50px;background:var(--border);"></div>
+            <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;">Professional</div><div style="font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:800;color:#a78bfa;line-height:1;" id="cp-as-pxp-prof">—</div><div style="font-size:11px;color:var(--muted);">3 pts each</div></div>
+            <div style="width:1px;height:50px;background:var(--border);"></div>
+            <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;">Associate</div><div style="font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:800;color:#22c55e;line-height:1;" id="cp-as-pxp-assoc">—</div><div style="font-size:11px;color:var(--muted);">1 pt each</div></div>
+            <div style="width:1px;height:50px;background:var(--border);"></div>
+            <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;">Total PVI Pts</div><div style="font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:800;color:#fb923c;line-height:1;" id="cp-as-pxp-pts">—</div><div style="font-size:11px;color:var(--muted);">career cert score</div></div>
+          </div>
+          <!-- Personnel report row -->
+          <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:6px;">&#8942; Calculated (from personnel report)</div>
           <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:center;">
-            <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;">Expert</div><div style="font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:800;color:#f59e0b;line-height:1;" id="cp-as-expert">—</div><div style="font-size:11px;color:var(--muted);">10 pts each</div></div>
-            <div style="width:1px;height:50px;background:var(--border);"></div>
-            <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;">Professional</div><div style="font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:800;color:#a78bfa;line-height:1;" id="cp-as-prof">—</div><div style="font-size:11px;color:var(--muted);">3 pts each</div></div>
-            <div style="width:1px;height:50px;background:var(--border);"></div>
-            <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;">Associate</div><div style="font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:800;color:#22c55e;line-height:1;" id="cp-as-assoc">—</div><div style="font-size:11px;color:var(--muted);">1 pt each</div></div>
-            <div style="width:1px;height:50px;background:var(--border);"></div>
-            <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;">Total PVI Pts</div><div style="font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:800;color:#fb923c;line-height:1;" id="cp-as-pts">—</div><div style="font-size:11px;color:var(--muted);">career cert score</div></div>
+            <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;">Expert</div><div style="font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:800;color:#f59e0b;line-height:1;opacity:.7;" id="cp-as-expert">—</div></div>
+            <div style="width:1px;height:36px;background:var(--border);"></div>
+            <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;">Professional</div><div style="font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:800;color:#a78bfa;line-height:1;opacity:.7;" id="cp-as-prof">—</div></div>
+            <div style="width:1px;height:36px;background:var(--border);"></div>
+            <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;">Associate</div><div style="font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:800;color:#22c55e;line-height:1;opacity:.7;" id="cp-as-assoc">—</div></div>
+            <div style="width:1px;height:36px;background:var(--border);"></div>
+            <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;">Total PVI Pts</div><div style="font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:800;color:#fb923c;line-height:1;opacity:.7;" id="cp-as-pts">—</div></div>
           </div>
         </div>
         <div class="cp-tbl-wrap">
@@ -1550,6 +1563,7 @@ function cpRenderRoster(){
   // Update arch stats bar
   var archBar=document.getElementById('cp-arch-stats');
   if(portF&&archBar){
+    // Calculated from personnel report
     var asExpert=0,asProf=0,asAssoc=0,asPts=0,seenCanon={};
     empArr.forEach(function(emp){
       if(pF&&emp.name!==pF)return;
@@ -1564,7 +1578,28 @@ function cpRenderRoster(){
         asPts+=c.points;
       });
     });
+    // PXP Official from DPV allRows — find Career Cert Maturity row for this portfolio + month
+    var pxpExpert=0,pxpProf=0,pxpAssoc=0,pxpPts=0,pxpLoaded=false;
+    if(allRows&&allRows.length){
+      var ccRow=allRows.find(function(r){
+        return r.portfolio===portF&&r.month===selectedMonth&&
+          (r.measurement.toLowerCase().includes('career cert')||r.measurement.toLowerCase().includes('certification maturity'));
+      });
+      if(ccRow){
+        pxpExpert=parseInt(ccRow.maCount)||0;
+        pxpProf=parseInt(ccRow.mbCount)||0;
+        pxpAssoc=parseInt(ccRow.mcCount)||0;
+        pxpPts=(pxpExpert*10)+(pxpProf*3)+(pxpAssoc*1);
+        pxpLoaded=true;
+      }
+    }
     document.getElementById('cp-arch-stats-title').textContent=portF+' — Portfolio Cert Summary';
+    // PXP row
+    document.getElementById('cp-as-pxp-expert').textContent=pxpLoaded?pxpExpert:'—';
+    document.getElementById('cp-as-pxp-prof').textContent=pxpLoaded?pxpProf:'—';
+    document.getElementById('cp-as-pxp-assoc').textContent=pxpLoaded?pxpAssoc:'—';
+    document.getElementById('cp-as-pxp-pts').textContent=pxpLoaded?pxpPts:'—';
+    // Calculated row
     document.getElementById('cp-as-expert').textContent=asExpert;
     document.getElementById('cp-as-prof').textContent=asProf;
     document.getElementById('cp-as-assoc').textContent=asAssoc;
@@ -2050,19 +2085,44 @@ function cpPrintRoster(){
         asPts+=c.points;
       });
     });
-    pdfArchStats='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px;padding:14px 16px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;">'
+    // PXP official from DPV
+    var pxpE=0,pxpP=0,pxpA=0,pxpT=0,pxpOk=false;
+    if(allRows&&allRows.length){
+      var ccR=allRows.find(function(r){
+        return r.portfolio===portFilter&&r.month===selectedMonth&&
+          (r.measurement.toLowerCase().includes('career cert')||r.measurement.toLowerCase().includes('certification maturity'));
+      });
+      if(ccR){pxpE=parseInt(ccR.maCount)||0;pxpP=parseInt(ccR.mbCount)||0;pxpA=parseInt(ccR.mcCount)||0;pxpT=(pxpE*10)+(pxpP*3)+pxpA;pxpOk=true;}
+    }
+    var pxpRow=pxpOk
+      ?'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:8px;padding:14px 16px;background:#eff6ff;border:1px solid #93c5fd;border-radius:8px;">'
+        +'<div><div style="font-size:10px;font-weight:800;text-transform:uppercase;color:#1e40af;letter-spacing:.05em;margin-bottom:4px;">Expert</div>'
+          +'<div style="font-family:monospace;font-size:28px;font-weight:800;color:#d97706;line-height:1;">'+pxpE+'</div>'
+          +'<div style="font-size:11px;color:#94a3b8;margin-top:3px;">10 pts each</div></div>'
+        +'<div><div style="font-size:10px;font-weight:800;text-transform:uppercase;color:#1e40af;letter-spacing:.05em;margin-bottom:4px;">Professional</div>'
+          +'<div style="font-family:monospace;font-size:28px;font-weight:800;color:#7c3aed;line-height:1;">'+pxpP+'</div>'
+          +'<div style="font-size:11px;color:#94a3b8;margin-top:3px;">3 pts each</div></div>'
+        +'<div><div style="font-size:10px;font-weight:800;text-transform:uppercase;color:#1e40af;letter-spacing:.05em;margin-bottom:4px;">Associate</div>'
+          +'<div style="font-family:monospace;font-size:28px;font-weight:800;color:#15803d;line-height:1;">'+pxpA+'</div>'
+          +'<div style="font-size:11px;color:#94a3b8;margin-top:3px;">1 pt each</div></div>'
+        +'<div><div style="font-size:10px;font-weight:800;text-transform:uppercase;color:#1e40af;letter-spacing:.05em;margin-bottom:4px;">Total PVI Pts</div>'
+          +'<div style="font-family:monospace;font-size:28px;font-weight:800;color:#ea580c;line-height:1;">'+pxpT+'</div>'
+          +'<div style="font-size:11px;color:#94a3b8;margin-top:3px;">career cert score</div></div>'
+        +'</div>'
+      :'';
+    var calcRow='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px;padding:12px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">'
       +'<div><div style="font-size:10px;font-weight:800;text-transform:uppercase;color:#64748b;letter-spacing:.05em;margin-bottom:4px;">Expert</div>'
-        +'<div style="font-family:monospace;font-size:28px;font-weight:800;color:#d97706;line-height:1;">'+asExpert+'</div>'
-        +'<div style="font-size:11px;color:#94a3b8;margin-top:3px;">10 pts each</div></div>'
+        +'<div style="font-family:monospace;font-size:22px;font-weight:800;color:#d97706;line-height:1;">'+asExpert+'</div></div>'
       +'<div><div style="font-size:10px;font-weight:800;text-transform:uppercase;color:#64748b;letter-spacing:.05em;margin-bottom:4px;">Professional</div>'
-        +'<div style="font-family:monospace;font-size:28px;font-weight:800;color:#7c3aed;line-height:1;">'+asProf+'</div>'
-        +'<div style="font-size:11px;color:#94a3b8;margin-top:3px;">3 pts each</div></div>'
+        +'<div style="font-family:monospace;font-size:22px;font-weight:800;color:#7c3aed;line-height:1;">'+asProf+'</div></div>'
       +'<div><div style="font-size:10px;font-weight:800;text-transform:uppercase;color:#64748b;letter-spacing:.05em;margin-bottom:4px;">Associate</div>'
-        +'<div style="font-family:monospace;font-size:28px;font-weight:800;color:#15803d;line-height:1;">'+asAssoc+'</div>'
-        +'<div style="font-size:11px;color:#94a3b8;margin-top:3px;">1 pt each</div></div>'
+        +'<div style="font-family:monospace;font-size:22px;font-weight:800;color:#15803d;line-height:1;">'+asAssoc+'</div></div>'
       +'<div><div style="font-size:10px;font-weight:800;text-transform:uppercase;color:#64748b;letter-spacing:.05em;margin-bottom:4px;">Total PVI Pts</div>'
-        +'<div style="font-family:monospace;font-size:28px;font-weight:800;color:#ea580c;line-height:1;">'+asPts.toFixed(0)+'</div>'
-        +'<div style="font-size:11px;color:#94a3b8;margin-top:3px;">career cert score</div></div>'
+        +'<div style="font-family:monospace;font-size:22px;font-weight:800;color:#ea580c;line-height:1;">'+asPts.toFixed(0)+'</div></div>'
+      +'</div>';
+    pdfArchStats='<div style="margin-bottom:20px;">'
+      +(pxpOk?'<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#1e40af;margin-bottom:5px;">&#9733; PXP Official (from DPV)</div>'+pxpRow:'')
+      +'<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#64748b;margin-bottom:5px;">Calculated (from personnel report)</div>'+calcRow
       +'</div>';
   }
   pw.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Certification Roster'+(portFilter?' — '+portFilter:'')+' </title><style>'+styl+'</style></head><body>'
