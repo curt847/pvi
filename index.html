@@ -1678,7 +1678,6 @@ async function cpGenerate(){
     var g=gaps.find(function(x){return x.portfolio===p&&x.type==='blackbelt';});
     outputTemplate+='**RECOMMENDED '+p.toUpperCase()+' BLACK BELT TRAININGS**\n'
       +'ELIGIBLE CANDIDATES: name1, name2 ... (all employees with relevant '+p+' cert background)\n'
-      +'Training Name | X pts\n'
       +'... (STOP adding items the moment running total >= '+g.gapPts.toFixed(1)+' pts. Do not add more.)\n'
       +'TOTAL BB PTS NEEDED: '+g.gapPts.toFixed(1)+'\n\n';
   });
@@ -1687,9 +1686,7 @@ async function cpGenerate(){
     outputTemplate+='**RECOMMENDED '+p.toUpperCase()+' PROFESSIONAL CERTIFICATIONS**\n'
       +'ELIGIBLE CANDIDATES: name1, name2 ... (all employees with relevant '+p+' cert background)\n'
       +'LEVEL: Professional\n'
-      +'Cert Name (Exam Code) | X pts\n'
       +'LEVEL: Associate\n'
-      +'Cert Name (Exam Code) | X pts\n'
       +'... (STOP adding items the moment running total >= '+g.gapPts.toFixed(1)+' pts. Do not add more.)\n'
       +'TOTAL CERT PTS NEEDED: '+g.gapPts.toFixed(1)+'\n\n';
   });
