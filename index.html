@@ -301,6 +301,19 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 .cp-total{display:flex;justify-content:flex-end;padding:6px 14px 2px;}
 .cp-total-score{font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:800;color:var(--green);}
 .cp-plain{font-size:13px;color:var(--muted);padding:8px 0;}
+.cp-candidates-block{margin-bottom:16px;}
+.cp-candidates-label{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:8px;}
+.cp-candidates-pills{display:flex;flex-wrap:wrap;gap:6px;}
+.cp-person-pill{background:rgba(4,159,217,.12);border:1px solid rgba(4,159,217,.3);color:var(--blue2);border-radius:20px;padding:3px 11px;font-size:12px;font-weight:600;}
+.cp-divider{border:none;border-top:1px solid var(--border);margin:14px 0;}
+.cp-items-label{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:10px;}
+.cp-level-label{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:12px 0 6px;padding-left:2px;}
+.cp-total-big{display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:14px 0 2px;border-top:1px solid var(--border);margin-top:10px;}
+.cp-total-big-label{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--blue);padding-top:3px;}
+.cp-total-big-score{font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:800;color:var(--blue2);}
+.cp-item-no-who{display:grid;grid-template-columns:1fr auto;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;overflow:hidden;}
+.cp-roster-print-btn{background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 12px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;}
+.cp-roster-print-btn:hover{border-color:var(--blue);color:var(--blue);}
 /* CERT PLANNER PANEL */
 .cp-gap-bar{background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.3);border-radius:10px;padding:14px 18px;margin-bottom:18px;}
 .cp-gap-title{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.9px;color:var(--amber);margin-bottom:10px;}
@@ -508,7 +521,10 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
         </div>
         <div class="cp-tbl-wrap">
           <div class="cp-tbl-hdr"><h3>Certification Roster</h3>
-            <input class="cp-srch" id="cp-srch" placeholder="Search certs..." oninput="cpRenderRoster()" />
+            <div style="display:flex;align-items:center;gap:8px;">
+              <button class="cp-roster-print-btn" onclick="cpPrintRoster()">&#128424; Print Roster PDF</button>
+              <input class="cp-srch" id="cp-srch" placeholder="Search certs..." oninput="cpRenderRoster()" />
+            </div>
           </div>
           <div class="cp-tbl-scroll">
             <table class="cp-tbl">
@@ -1555,14 +1571,21 @@ function cpFormatPlan(raw){
   lines.forEach(function(line){
     var t=line.trim();if(!t)return;
     var hdr=t.match(/^\*{1,2}([^*]+)\*{1,2}$/);
-    if(hdr){if(cur)sections.push(cur);cur={title:hdr[1].trim(),items:[],total:null};return;}
+    if(hdr){if(cur)sections.push(cur);cur={title:hdr[1].trim(),items:[],total:null,candidates:[],currentLevel:null};return;}
     if(t.toUpperCase().startsWith('TOTAL')){if(cur)cur.total=t.replace(/\*\*/g,'');return;}
+    if(t.toUpperCase().startsWith('ELIGIBLE CANDIDATES:')){
+      if(!cur)cur={title:'',items:[],total:null,candidates:[],currentLevel:null};
+      var clist=t.replace(/^ELIGIBLE CANDIDATES:\s*/i,'').split(',').map(function(n){return n.trim().replace(/\*\*/g,'');}).filter(Boolean);
+      cur.candidates=clist;return;
+    }
+    var lvlMatch=t.match(/^LEVEL:\s*(.+)$/i);
+    if(lvlMatch){if(cur)cur.currentLevel=lvlMatch[1].trim();return;}
     if(t.indexOf('|')>=0){
       var p=t.split('|').map(function(x){return x.trim().replace(/\*\*/g,'');});
-      if(!cur)cur={title:'',items:[],total:null};
-      cur.items.push({name:p[0],pts:p[1]||'',who:p[2]||''});return;
+      if(!cur)cur={title:'',items:[],total:null,candidates:[],currentLevel:null};
+      cur.items.push({name:p[0],pts:p[1]||'',level:cur?cur.currentLevel:null});return;
     }
-    if(!cur)cur={title:'',items:[],total:null,plain:[]};
+    if(!cur)cur={title:'',items:[],total:null,candidates:[],currentLevel:null,plain:[]};
     if(!cur.plain)cur.plain=[];
     cur.plain.push(t.replace(/\*\*/g,''));
   });
@@ -1571,17 +1594,32 @@ function cpFormatPlan(raw){
   return sections.map(function(sec){
     var o='<div class="cp-section">';
     if(sec.title)o+='<div class="cp-section-hdr">'+sec.title+'</div>';
+    if(sec.candidates&&sec.candidates.length){
+      o+='<div class="cp-candidates-block">'
+        +'<div class="cp-candidates-label">Eligible Candidates</div>'
+        +'<div class="cp-candidates-pills">'+sec.candidates.map(function(n){return'<span class="cp-person-pill">'+n+'</span>';}).join('')+'</div>'
+        +'</div>';
+      if(sec.items.length)o+='<hr class="cp-divider"><div class="cp-items-label">Recommended Options</div>';
+    }
     if(sec.plain&&sec.plain.length)o+='<div class="cp-plain">'+sec.plain.join('<br>')+'</div>';
+    var lastLevel=null;
     sec.items.forEach(function(item){
-      o+='<div class="cp-item">'
+      if(item.level&&item.level!==lastLevel){
+        o+='<div class="cp-level-label">'+item.level+'</div>';
+        lastLevel=item.level;
+      }
+      o+='<div class="cp-item-no-who">'
         +'<div class="cp-item-name">'+item.name+'</div>'
         +'<div class="cp-item-pts">'+item.pts+'</div>'
-        +'<div class="cp-item-who">'+item.who+'</div>'
         +'</div>';
     });
     if(sec.total){
+      var raw2=sec.total.replace(/TOTAL\s+\w+\s+PTS?\s+(?:ADDED|NEEDED):\s*/i,'').replace(/TOTAL\s+BB\s+PTS?\s+(?:ADDED|NEEDED):\s*/i,'').replace(/TOTAL\s+CERT\s+PTS?\s+(?:ADDED|NEEDED):\s*/i,'');
+      var isBB=/black.?belt|BB/i.test(sec.title);
+      var label=isBB?'TOTAL BB POINTS NEEDED:':'TOTAL CERT POINTS NEEDED:';
       var m=sec.total.match(/([\d.]+)\s*\/\s*([\d.]+)/);
-      if(m)o+='<div class="cp-total"><span class="cp-total-score">'+m[1]+' / '+m[2]+' pts</span></div>';
+      var scoreStr=m?m[2]:raw2.trim();
+      o+='<div class="cp-total-big"><span class="cp-total-big-label">'+label+'</span><span class="cp-total-big-score">'+scoreStr+'</span></div>';
     }
     return o+'</div>';
   }).join('');
@@ -1630,15 +1668,21 @@ async function cpGenerate(){
       +'IMPORTANT:\n'
       +'- Employee data shows CAREER CERTS only, not completed Black Belt trainings.\n'
       +'- List all employees who are a good fit — no cap on candidates.\n'
-      +'- Do NOT default to Meraki. Match BB trainings to the gap portfolio and team cert depth.\n\n'
+      +'- Do NOT default to Meraki. Match BB trainings to the gap portfolio and team cert depth.\n'
+      +'- For Professional Certifications, group items under LEVEL: Associate, LEVEL: Professional, or LEVEL: Expert sub-headers as appropriate.\n\n'
       +'**RECOMMENDED BLACK BELT TRAININGS**\n'
-      +'Training Name | X pts | Up to 5 best-fit candidates (comma separated, most qualified first)\n'
+      +'ELIGIBLE CANDIDATES: name1, name2, name3 (comma-separated, most qualified first, all who are good fits)\n'
+      +'Training Name | X pts\n'
       +'(add lines until BB point total meets or exceeds the BB gap with minimum overshoot)\n'
-      +'TOTAL BB PTS ADDED: X / X NEEDED\n\n'
+      +'TOTAL BB PTS NEEDED: X\n\n'
       +'**RECOMMENDED PROFESSIONAL CERTIFICATIONS**\n'
-      +'Cert Name (Exam Code) | X pts | Up to 5 best-fit candidates (comma separated, most qualified first)\n'
+      +'ELIGIBLE CANDIDATES: name1, name2, name3 (comma-separated, most qualified first)\n'
+      +'LEVEL: Professional\n'
+      +'Cert Name (Exam Code) | X pts\n'
+      +'LEVEL: Associate\n'
+      +'Cert Name (Exam Code) | X pts\n'
       +'(add lines until Cert point total meets or exceeds the Career Cert gap with minimum overshoot)\n'
-      +'TOTAL CERT PTS ADDED: X / X NEEDED\n\n'
+      +'TOTAL CERT PTS NEEDED: X\n\n'
       +'Omit any section where no gap exists. If both gaps are already met: No additional certifications required.';
   }
   try{
@@ -1659,25 +1703,42 @@ async function cpGenerate(){
 }
 
 function cpPrintPlan(){
-  var content=document.getElementById('cp-ai-body').innerText||'';
-  if(!content)return;
+  var bodyEl=document.getElementById('cp-ai-body');
+  if(!bodyEl||!bodyEl.innerHTML.trim())return;
   var gaps=cpGetWhatIfGaps();
-  var gapLines=gaps.length?gaps.map(function(g){return g.portfolio+': +'+g.gapPts.toFixed(1)+' '+(g.type==='blackbelt'?'BB':'Cert')+' pts (Index '+g.fromIdx+' to '+g.toIdx+')';}).join('\n'):'None';
+  var gapLines=gaps.length?gaps.map(function(g){return g.portfolio+': +'+g.gapPts.toFixed(1)+' '+(g.type==='blackbelt'?'BB':'Cert')+' pts (Index '+g.fromIdx+' to '+g.toIdx+')';}).join('<br>'):'None';
   var today=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
-  var pw=window.open('','_blank','width=900,height=700');
-  pw.document.write('<html><head><meta charset="UTF-8"><title>PVI Cert Plan</title>'
-    +'<style>body{font-family:Segoe UI,sans-serif;margin:0;padding:40px;font-size:14px;line-height:1.7;}'
-    +'h1{color:#049fd9;font-size:22px;margin:0 0 4px;}'
-    +'.meta{color:#666;font-size:12px;padding-bottom:18px;border-bottom:3px solid #049fd9;margin-bottom:24px;}'
-    +'.gap-box{background:#fffbeb;border:1px solid #f59e0b;border-radius:8px;padding:14px 18px;margin-bottom:24px;}'
-    +'.gap-box h3{font-size:12px;font-weight:800;text-transform:uppercase;color:#92400e;margin:0 0 8px;}'
-    +'.plan{white-space:pre-wrap;font-size:14px;}'
-    +'@media print{button{display:none!important}}</style></head><body>'
+  var pw=window.open('','_blank','width=960,height=750');
+  pw.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>PVI Cert Plan</title>'
+    +'<style>'
+    +'body{font-family:"Segoe UI",sans-serif;margin:0;padding:36px 44px;font-size:14px;line-height:1.7;background:#fff;color:#111;}'
+    +'h1{color:#049fd9;font-size:22px;margin:0 0 4px;font-weight:800;}'
+    +'.meta{color:#666;font-size:12px;padding-bottom:16px;border-bottom:3px solid #049fd9;margin-bottom:22px;}'
+    +'.gap-box{background:#fffbeb;border:1px solid #f59e0b;border-radius:8px;padding:12px 16px;margin-bottom:22px;}'
+    +'.gap-box h3{font-size:11px;font-weight:800;text-transform:uppercase;color:#92400e;margin:0 0 6px;letter-spacing:.06em;}'
+    +'.cp-section{margin-bottom:36px;}'
+    +'.cp-section-hdr{font-size:14px;font-weight:800;color:#fff;padding:9px 14px;background:#0d6a8a;border-left:4px solid #049fd9;border-radius:6px;margin-bottom:14px;letter-spacing:.02em;}'
+    +'.cp-candidates-block{margin-bottom:14px;}'
+    +'.cp-candidates-label{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#888;margin-bottom:7px;}'
+    +'.cp-candidates-pills{display:flex;flex-wrap:wrap;gap:5px;}'
+    +'.cp-person-pill{background:#e0f2fe;border:1px solid #7dd3fc;color:#0369a1;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:600;}'
+    +'hr.cp-divider{border:none;border-top:1px solid #e5e7eb;margin:12px 0;}'
+    +'.cp-items-label{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#888;margin-bottom:8px;}'
+    +'.cp-level-label{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#888;margin:10px 0 5px;}'
+    +'.cp-item-no-who{display:flex;justify-content:space-between;align-items:center;border:1px solid #e5e7eb;border-radius:7px;margin-bottom:7px;overflow:hidden;}'
+    +'.cp-item-name{padding:9px 13px;font-size:13px;font-weight:600;flex:1;}'
+    +'.cp-item-pts{padding:9px 13px;background:#f9fafb;font-family:monospace;font-size:13px;font-weight:800;color:#d97706;border-left:1px solid #e5e7eb;white-space:nowrap;}'
+    +'.cp-total-big{display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:12px 0 2px;border-top:1px solid #e5e7eb;margin-top:10px;}'
+    +'.cp-total-big-label{font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#2563eb;}'
+    +'.cp-total-big-score{font-family:monospace;font-size:26px;font-weight:800;color:#1d4ed8;}'
+    +'.cp-plain{font-size:12px;color:#666;padding:6px 0;}'
+    +'@media print{button{display:none!important}body{padding:20px 28px;}}'
+    +'</style></head><body>'
     +'<h1>PVI Certification Plan</h1>'
-    +'<div class="meta"><strong>People Driven Technology</strong> &middot; '+(partnerName||'')+'<br>Generated: '+today+' &middot; Month: '+(selectedMonth||'')+'  &middot; Size: '+shirtSize+'</div>'
-    +(gaps.length?'<div class="gap-box"><h3>What-If Gaps Targeted</h3><pre>'+gapLines+'</pre></div>':'')
-    +'<div class="plan">'+content+'</div>'
-    +'<br><button onclick="window.print()" style="background:#049fd9;color:#fff;border:none;padding:10px 22px;font-size:14px;font-weight:700;border-radius:6px;cursor:pointer">Print / Save as PDF</button>'
+    +'<div class="meta"><strong>'+(partnerName||'')+'</strong> &middot; Generated: '+today+' &middot; Month: '+(selectedMonth||'')+' &middot; Size: '+shirtSize+'</div>'
+    +(gaps.length?'<div class="gap-box"><h3>What-If Gaps Targeted</h3>'+gapLines+'</div>':'')
+    +bodyEl.innerHTML
+    +'<br><button onclick="window.print()" style="background:#049fd9;color:#fff;border:none;padding:10px 22px;font-size:14px;font-weight:700;border-radius:6px;cursor:pointer;margin-top:12px;">Print / Save as PDF</button>'
     +'</body></html>');
   pw.document.close();
 }
@@ -1687,6 +1748,53 @@ function cpEmailPlan(){
   var today=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
   var subj='PVI Certification Plan -- '+(partnerName||'People Driven Technology')+' -- '+today;
   window.location.href='mailto:?subject='+encodeURIComponent(subj)+'&body='+encodeURIComponent(content);
+}
+
+function cpPrintRoster(){
+  var tbl=document.getElementById('cp-tbl-body');
+  if(!tbl||!tbl.innerHTML.trim()){alert('No roster data to print. Upload a personnel report first.');return;}
+  var today=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+  var rows=tbl.querySelectorAll('tr');
+  var tableRows='';
+  rows.forEach(function(tr){
+    var cells=tr.querySelectorAll('td');
+    if(!cells.length)return;
+    var name=cells[0]?cells[0].querySelector('.cp-name')?cells[0].querySelector('.cp-name').textContent:'':'';
+    var email=cells[0]?cells[0].querySelector('.cp-email')?cells[0].querySelector('.cp-email').textContent:'':'';
+    var certsHTML=cells[1]?cells[1].innerHTML:'';
+    var pts=cells[2]?cells[2].querySelector('.cp-pts')?cells[2].querySelector('.cp-pts').textContent:'0':'0';
+    var other=cells[3]?cells[3].textContent:'';
+    tableRows+='<tr>'
+      +'<td><div style="font-weight:700;font-size:14px;">'+name+'</div><div style="font-size:11px;color:#888;">'+email+'</div></td>'
+      +'<td>'+certsHTML+'</td>'
+      +'<td style="text-align:center;font-family:monospace;font-size:16px;font-weight:800;color:#049fd9;">'+pts+'</td>'
+      +'<td style="font-size:12px;color:#888;">'+other+'</td>'
+      +'</tr>';
+  });
+  var pw=window.open('','_blank','width=1100,height=800');
+  pw.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Certification Roster</title>'
+    +'<style>'
+    +'body{font-family:"Segoe UI",sans-serif;margin:0;padding:32px 40px;font-size:13px;background:#fff;color:#111;}'
+    +'h1{color:#049fd9;font-size:20px;margin:0 0 3px;font-weight:800;}'
+    +'.meta{color:#666;font-size:12px;padding-bottom:14px;border-bottom:3px solid #049fd9;margin-bottom:20px;}'
+    +'table{width:100%;border-collapse:collapse;font-size:13px;}'
+    +'th{background:#f1f5f9;padding:9px 12px;text-align:left;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#64748b;border-bottom:2px solid #e2e8f0;}'
+    +'td{padding:10px 12px;border-bottom:1px solid #f1f5f9;vertical-align:top;}'
+    +'tr:hover td{background:#f8fafc;}'
+    +'.cp-badge{display:inline-block;padding:2px 7px;border-radius:4px;font-family:monospace;font-size:11px;font-weight:700;margin:2px;white-space:nowrap;}'
+    +'.expert{background:rgba(245,158,11,.15);color:#d97706;border:1px solid rgba(245,158,11,.3);}'
+    +'.professional{background:rgba(4,159,217,.15);color:#0369a1;border:1px solid rgba(4,159,217,.3);}'
+    +'.associate{background:rgba(34,197,94,.12);color:#15803d;border:1px solid rgba(34,197,94,.25);}'
+    +'.other{background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;}'
+    +'@media print{button{display:none!important}body{padding:16px 22px;}}'
+    +'</style></head><body>'
+    +'<h1>Certification Roster</h1>'
+    +'<div class="meta"><strong>'+(partnerName||'')+'</strong> &middot; Generated: '+today+' &middot; Month: '+(selectedMonth||'')+' &middot; Size: '+shirtSize+'</div>'
+    +'<table><thead><tr><th>Employee</th><th>Active PVI Certs</th><th>PVI Pts</th><th>Other Certs</th></tr></thead>'
+    +'<tbody>'+tableRows+'</tbody></table>'
+    +'<br><button onclick="window.print()" style="background:#049fd9;color:#fff;border:none;padding:9px 20px;font-size:13px;font-weight:700;border-radius:6px;cursor:pointer;margin-top:16px;">Print / Save as PDF</button>'
+    +'</body></html>');
+  pw.document.close();
 }
 
 (function(){
