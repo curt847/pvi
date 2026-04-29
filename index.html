@@ -291,9 +291,9 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 .wif-select option{background:var(--bg3);color:var(--text);font-size:15px;}
 
 /* CERT PLAN ITEM FORMATTING */
-.cp-section{margin-bottom:28px;}
+.cp-section{margin-bottom:40px;}
 .cp-section:last-child{margin-bottom:0;}
-.cp-section-hdr{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--blue2);padding-bottom:8px;border-bottom:1px solid var(--border2);margin-bottom:14px;}
+.cp-section-hdr{font-size:15px;font-weight:800;color:#ffffff;padding:10px 14px;background:rgba(4,159,217,.15);border-left:4px solid var(--blue2);border-radius:6px;margin-bottom:14px;letter-spacing:.02em;}
 .cp-item{display:grid;grid-template-columns:1fr auto auto;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;overflow:hidden;}
 .cp-item-name{padding:10px 14px;font-size:14px;font-weight:600;color:var(--text);display:flex;align-items:center;}
 .cp-item-pts{padding:10px 14px;background:var(--bg3);font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:800;color:var(--amber);display:flex;align-items:center;white-space:nowrap;border-left:1px solid var(--border);}
@@ -498,6 +498,12 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
           <select class="cp-filter-sel" id="cp-port-sel" onchange="cpRenderRoster()">
             <option value="">All portfolios</option><option>Networking</option><option>Security</option>
             <option>Collaboration</option><option>Cloud + AI Infrastructure</option>
+          </select>
+          <select class="cp-filter-sel" id="cp-sort-sel" onchange="cpRenderRoster()">
+            <option value="">Sort: Default</option>
+            <option value="expiry">Sort: Expiring Soonest</option>
+            <option value="expired">Show: Expired Only</option>
+            <option value="points">Sort: PVI Points (High-Low)</option>
           </select>
         </div>
         <div class="cp-tbl-wrap">
@@ -1436,10 +1442,16 @@ function cpPopulatePersonSel(){
 function cpRenderRoster(){
   var pF=document.getElementById('cp-person-sel').value;
   var portF=document.getElementById('cp-port-sel').value;
+  var sortF=(document.getElementById('cp-sort-sel')||{}).value||'';
   var srch=(document.getElementById('cp-srch').value||'').toLowerCase();
+  var today=new Date();
   var tbody=document.getElementById('cp-tbl-body');
   tbody.innerHTML='';
-  Object.values(cpEmployees).forEach(function(emp){
+  var empArr=Object.values(cpEmployees);
+
+  // Build rows with metadata for sorting
+  var rows=[];
+  empArr.forEach(function(emp){
     if(pF&&emp.name!==pF)return;
     var pviCerts=emp.certs.filter(function(c){
       if(!c.isPVI)return false;
@@ -1449,11 +1461,42 @@ function cpRenderRoster(){
     });
     var otherCerts=emp.certs.filter(function(c){return!c.isPVI;});
     var totalPts=pviCerts.reduce(function(s,c){return s+c.points;},0);
+    // Find soonest expiry across all certs
+    var allExpiries=emp.certs.filter(function(c){return c.expiryDate;}).map(function(c){return c.expiryDate;});
+    var soonest=allExpiries.length?allExpiries.reduce(function(a,b){return a<b?a:b;}):null;
+    var hasExpired=emp.certs.some(function(c){return c.expiryStatus==='expired';});
+    var hasSoon=emp.certs.some(function(c){return c.expiryStatus==='soon';});
+    if(sortF==='expired'&&!hasExpired)return;
+    rows.push({emp:emp,pviCerts:pviCerts,otherCerts:otherCerts,totalPts:totalPts,soonest:soonest,hasExpired:hasExpired,hasSoon:hasSoon});
+  });
+
+  // Sort
+  if(sortF==='expiry'||sortF==='expired'){
+    rows.sort(function(a,b){
+      if(!a.soonest&&!b.soonest)return 0;
+      if(!a.soonest)return 1;
+      if(!b.soonest)return -1;
+      return a.soonest-b.soonest;
+    });
+  } else if(sortF==='points'){
+    rows.sort(function(a,b){return b.totalPts-a.totalPts;});
+  }
+
+  rows.forEach(function(row){
+    var emp=row.emp;
+    var expiryIndicator='';
+    if(row.hasExpired)expiryIndicator='<span style="color:var(--red);font-size:11px;font-weight:800;margin-left:6px">● EXPIRED</span>';
+    else if(row.hasSoon)expiryIndicator='<span style="color:var(--amber);font-size:11px;font-weight:800;margin-left:6px">● EXPIRING</span>';
+    var soonestStr=row.soonest?row.soonest.toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'}):'';
     var tr=document.createElement('tr');
-    tr.innerHTML='<td><div class="cp-name">'+emp.name+'</div><div class="cp-email">'+emp.email+'</div></td>'
-      +'<td>'+(pviCerts.length?pviCerts.map(function(c){return'<span class="cp-badge '+cpLevelCls(c.level)+'" title="'+c.desc+'">'+c.code+'</span>';}).join(''):'<span style="color:var(--muted);font-size:12px">None on PVI list</span>')+'</td>'
-      +'<td><span class="cp-pts" style="color:'+(totalPts>=10?'#f59e0b':totalPts>=3?'#049fd9':'var(--muted)')+'">'+totalPts+'</span></td>'
-      +'<td style="color:var(--muted);font-size:13px">'+otherCerts.slice(0,3).map(function(c){return c.code;}).join(', ')+(otherCerts.length>3?' +'+(otherCerts.length-3):'')+'</td>';
+    tr.innerHTML='<td><div class="cp-name">'+emp.name+expiryIndicator+'</div>'
+      +'<div class="cp-email">'+emp.email+(soonestStr&&(row.hasExpired||row.hasSoon)?' &nbsp;·&nbsp; <span style="color:'+(row.hasExpired?'var(--red)':'var(--amber)')+'">'+(row.hasExpired?'Expired ':'Expires ')+soonestStr+'</span>':'')+'</div></td>'
+      +'<td>'+(row.pviCerts.length?row.pviCerts.map(function(c){
+        var exp=c.expiryStatus==='expired'?' style="opacity:.5"':c.expiryStatus==='soon'?' style="outline:1px solid var(--amber)"':'';
+        return'<span class="cp-badge '+cpLevelCls(c.level)+'"'+exp+' title="'+c.desc+'">'+c.code+'</span>';
+      }).join(''):'<span style="color:var(--muted);font-size:12px">None on PVI list</span>')+'</td>'
+      +'<td><span class="cp-pts" style="color:'+(row.totalPts>=10?'#f59e0b':row.totalPts>=3?'#049fd9':'var(--muted)')+'">'+row.totalPts+'</span></td>'
+      +'<td style="color:var(--muted);font-size:13px">'+row.otherCerts.slice(0,3).map(function(c){return c.code;}).join(', ')+(row.otherCerts.length>3?' +'+(row.otherCerts.length-3):'')+'</td>';
     tbody.appendChild(tr);
   });
 }
@@ -1538,8 +1581,8 @@ function cpFormatPlan(raw){
     });
     if(sec.total){
       var m=sec.total.match(/([\d.]+)\s*\/\s*([\d.]+)/);
-      var lbl=m?sec.total.replace(m[0],'').trim():sec.total;
-      o+='<div class="cp-total"><span>'+lbl+'</span><span class="cp-total-score">'+(m?m[1]:'')+' / '+(m?m[2]:'')+' pts</span></div>';
+      var lbl=sec.total.replace(m?m[0]:'','').replace(/\bNEEDED\b/i,'').replace(/:\s*$/,'').trim();
+      o+='<div class="cp-total"><span>'+lbl+'</span><span class="cp-total-score">'+(m?m[1]:'')+' / '+(m?m[2]:'')+' pts needed</span></div>';
     }
     return o+'</div>';
   }).join('');
@@ -1591,11 +1634,11 @@ async function cpGenerate(){
       +'- Do NOT default to Meraki just because it is easy or has many entries. Match the BB training to the portfolio gap and the team actual expertise. If the gap is Networking and the team has CCNP Enterprise, CCIE, or wireless certs, recommend BBs that align with that depth.\n'
       +'- Pick BB trainings where the candidates have relevant cert background, not just the shortest path to points.\n\n'
       +'**RECOMMENDED BLACK BELT TRAININGS**\n'
-      +'Training Name | X pts | All good-fit candidates (comma separated)\n'
+      +'Training Name | X pts | Up to 5 best-fit candidates (comma separated, most qualified first)\n'
       +'(add lines until BB point total meets or exceeds the BB gap)\n'
       +'TOTAL BB PTS ADDED: X / X NEEDED\n\n'
       +'**RECOMMENDED PROFESSIONAL CERTIFICATIONS**\n'
-      +'Cert Name (Exam Code) | X pts | All good-fit candidates (comma separated)\n'
+      +'Cert Name (Exam Code) | X pts | Up to 5 best-fit candidates (comma separated, most qualified first)\n'
       +'(add lines until Cert point total meets or exceeds the Career Cert gap)\n'
       +'TOTAL CERT PTS ADDED: X / X NEEDED\n\n'
       +'Omit any section where no gap exists. If both gaps are already met: No additional certifications required.';
