@@ -1621,7 +1621,7 @@ function cpFormatPlan(raw){
         +'</div>';
     });
     if(sec.total){
-      var isBB=/black.?belt|BB/i.test(sec.title);
+      var isBB=/black.?belt/i.test(sec.title);
       var label=isBB?'TOTAL BB POINTS NEEDED:':'TOTAL CERT POINTS NEEDED:';
       var m=sec.total.match(/([\d.]+)\s*\/\s*([\d.]+)/);
       var scoreStr=m?m[2]:sec.total.replace(/TOTAL\s+\S+\s+PTS?\s+\S+:\s*/i,'').trim();
@@ -1646,60 +1646,83 @@ async function cpGenerate(){
       otherCerts:emp.certs.filter(function(c){return!c.isPVI;}).map(function(c){return c.code;}),
       totalPVIPoints:pviCerts.reduce(function(s,c){return s+c.points;},0)};
   });
-  var certRef=CP_CERTS.filter(function(c){return['Associate','Professional','Expert'].includes(c['Level Name']);}).map(function(c){
+  // Filter references to only portfolios that have gaps
+  var bbGapPortfolios=gaps.filter(function(g){return g.type==='blackbelt';}).map(function(g){return g.portfolio;});
+  var certGapPortfolios=gaps.filter(function(g){return g.type==='careercert';}).map(function(g){return g.portfolio;});
+
+  var certRef=CP_CERTS.filter(function(c){
+    return['Associate','Professional','Expert'].includes(c['Level Name'])&&certGapPortfolios.indexOf(c['Portfolio'])>=0;
+  }).map(function(c){
     return c['Exam Code']+'|'+c['Exam Name']+'|'+c['Level Name']+'|'+c['Multiplier']+' pts|'+c['Portfolio']+(c['Exam']?'|Exam: '+c['Exam']:'');
   }).join('\n');
-  var bbRef=CP_BB.filter(function(b){return b['PVI Mulitiplier']>=1;}).slice(0,80).map(function(b){
+  var bbRef=CP_BB.filter(function(b){
+    return b['PVI Mulitiplier']>=1&&bbGapPortfolios.indexOf(b['PXP Portfolio'])>=0;
+  }).map(function(b){
     return b['PXP Portfolio']+'|'+b['PROGRAM_TRACK']+'|'+b['TRACK']+'|'+b['STAGE']+'|'+b['LM_TITLE']+'|'+b['PVI Mulitiplier']+'pts';
   }).join('\n');
-  var gapSection='';
-  if(gaps.length){
-    gapSection='\n\nWHAT-IF PVI GAPS TO FILL:\n';
-    gaps.forEach(function(g){
-      gapSection+='* '+g.portfolio+' -- '+(g.type==='blackbelt'?'Black Belt':'Career Cert')+' gap: +'+g.gapPts.toFixed(1)+' pts needed (Index '+g.fromIdx+' to '+g.toIdx+')\n';
-    });
-  }
+
   var hasGaps=gaps.length>0,dpvLoaded=allRows.length>0;
-  var prompt='You are a Cisco 360 Partner Program expert helping People Driven Technology maximize their PVI score.\n'
-    +'SCORING: Associate=1pt | Professional=3pts | Expert=10pts\n'
-    +gapSection
-    +'\nAVAILABLE PVI CERTS:\n'+certRef
-    +'\n\nBLACK BELT TRAININGS:\n'+bbRef
-    +'\n\nEMPLOYEE STATUS:\n'+JSON.stringify(empSummary,null,1)+'\n\nINSTRUCTIONS:\n';
-  if(!dpvLoaded||!hasGaps){
-    prompt+='No what-if gaps set. Respond with one line only: No additional certifications required.';
-  }else{
-    prompt+='Close each gap completely with MINIMUM overshoot. Before adding each item, check the running total. Prefer lower-value certs when they close the gap more cleanly. Only use Expert-level certs (10pts) if the remaining gap is near 10 or no lower cert closes it better. Example: gap=11pts — four CCNPs (12pts total) is better than two CCNPs + one CCIE (16pts total).\n'
-      +'Use EXACTLY this pipe-delimited format. One item per line. No intro, no prose, no other sections.\n\n'
-      +'IMPORTANT:\n'
-      +'- Employee data shows CAREER CERTS only, not completed Black Belt trainings.\n'
-      +'- List all employees who are a good fit — no cap on candidates.\n'
-      +'- Do NOT default to Meraki. Match BB trainings to the gap portfolio and team cert depth.\n'
-      +'- For Professional Certifications, group items under LEVEL: Associate, LEVEL: Professional, or LEVEL: Expert sub-headers.\n\n'
-      +'**RECOMMENDED BLACK BELT TRAININGS**\n'
-      +'ELIGIBLE CANDIDATES: name1, name2, name3 (comma-separated, most qualified first, all good fits)\n'
+
+  // Build explicit per-gap output instructions
+  var gapInstructions='GAPS TO CLOSE (address EVERY one):\n';
+  gaps.forEach(function(g,i){
+    gapInstructions+=(i+1)+'. '+g.portfolio+' — '+(g.type==='blackbelt'?'Black Belt':'Career Cert')+' gap: +'+g.gapPts.toFixed(1)+' pts needed (Index '+g.fromIdx+' → '+g.toIdx+')\n';
+  });
+
+  // Build the per-gap output template
+  var outputTemplate='';
+  bbGapPortfolios.forEach(function(p){
+    var g=gaps.find(function(x){return x.portfolio===p&&x.type==='blackbelt';});
+    outputTemplate+='**RECOMMENDED '+p.toUpperCase()+' BLACK BELT TRAININGS**\n'
+      +'ELIGIBLE CANDIDATES: name1, name2 ... (all employees with relevant '+p+' cert background)\n'
       +'Training Name | X pts\n'
-      +'(add lines until BB point total meets or exceeds the BB gap with minimum overshoot)\n'
-      +'TOTAL BB PTS NEEDED: X\n\n'
-      +'**RECOMMENDED PROFESSIONAL CERTIFICATIONS**\n'
-      +'ELIGIBLE CANDIDATES: name1, name2, name3 (comma-separated, most qualified first)\n'
+      +'... (STOP adding items the moment running total >= '+g.gapPts.toFixed(1)+' pts. Do not add more.)\n'
+      +'TOTAL BB PTS NEEDED: '+g.gapPts.toFixed(1)+'\n\n';
+  });
+  certGapPortfolios.forEach(function(p){
+    var g=gaps.find(function(x){return x.portfolio===p&&x.type==='careercert';});
+    outputTemplate+='**RECOMMENDED '+p.toUpperCase()+' PROFESSIONAL CERTIFICATIONS**\n'
+      +'ELIGIBLE CANDIDATES: name1, name2 ... (all employees with relevant '+p+' cert background)\n'
       +'LEVEL: Professional\n'
       +'Cert Name (Exam Code) | X pts\n'
       +'LEVEL: Associate\n'
       +'Cert Name (Exam Code) | X pts\n'
-      +'(add lines until Cert point total meets or exceeds the Career Cert gap with minimum overshoot)\n'
-      +'TOTAL CERT PTS NEEDED: X\n\n'
-      +'Omit any section where no gap exists. If both gaps are already met: No additional certifications required.';
+      +'... (STOP adding items the moment running total >= '+g.gapPts.toFixed(1)+' pts. Do not add more.)\n'
+      +'TOTAL CERT PTS NEEDED: '+g.gapPts.toFixed(1)+'\n\n';
+  });
+
+  var prompt='You are a Cisco 360 Partner Program expert. Output ONLY the formatted certification plan — no reasoning, no analysis, no explanation, no preamble. Start your response directly with the first ** section header.\n\n'
+    +'SCORING: Associate=1pt | Professional=3pts | Expert=10pts\n\n'
+    +gapInstructions
+    +(bbRef?'\nAVAILABLE BLACK BELT TRAININGS (only for gap portfolios):\n'+bbRef:'')
+    +(certRef?'\n\nAVAILABLE PVI CERTS (only for gap portfolios):\n'+certRef:'')
+    +'\n\nEMPLOYEE STATUS:\n'+JSON.stringify(empSummary,null,1)
+    +'\n\nRULES:\n'
+    +'- Output ONLY the section(s) below. No other text before, between, or after.\n'
+    +'- For each gap, add items one at a time, track a running total, and STOP the moment the total meets or just exceeds the gap. Do not list extra items.\n'
+    +'- Prefer items with the smallest point value that still closes the remaining gap. Use high-value items only when necessary.\n'
+    +'- Do NOT default to Meraki. Match BB trainings to the gap portfolio and team cert depth.\n'
+    +'- Employee data shows CAREER CERTS only (not BB trainings). Use certs to judge who is best-fit for each portfolio.\n'
+    +'- List all employees who are a good fit as candidates. No cap on candidates.\n'
+    +'- For Professional Certs, group under LEVEL: Professional / LEVEL: Associate / LEVEL: Expert sub-headers as needed.\n\n'
+    +'OUTPUT FORMAT (use exactly, one section per gap):\n\n'
+    +outputTemplate.trim();
+
+  if(!dpvLoaded||!hasGaps){
+    prompt='No what-if gaps set. Respond with one line only: No additional certifications required.';
   }
   try{
     var resp=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:2500,messages:[{role:'user',content:prompt}]})
+      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:3000,messages:[
+        {role:'user',content:prompt},
+        {role:'assistant',content:'**RECOMMENDED'}
+      ]})
     });
     var data=await resp.json();
     if(data.error)throw new Error(data.error.type+': '+data.error.message);
-    body.innerHTML=cpFormatPlan(data.content[0].text);
+    body.innerHTML=cpFormatPlan('**RECOMMENDED'+data.content[0].text);
     document.getElementById('cp-print-btn').style.display='';
     document.getElementById('cp-email-btn').style.display='';
   }catch(err){
