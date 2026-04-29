@@ -397,7 +397,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
       <button class="btn btn-wi hidden" id="summary-btn">📋 What-If Summary</button>
       <button class="btn btn-blue" id="cert-tab-btn" onclick="switchTab('certs')">🎓 Cert Planner</button>
       <button class="btn btn-ghost" id="benefits-btn">🏆 Benefits &amp; Thresholds</button>
-      <div style="display:flex;align-items:center;gap:6px;border-left:1px solid var(--border);padding-left:10px;"><label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;">API Key</label><input id="cp-api-key" type="password" placeholder="sk-ant-..." style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:5px 10px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px;width:200px;outline:none;" /></div>
+      <div style="display:flex;align-items:center;gap:6px;border-left:1px solid var(--border);padding-left:10px;"><label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;">API Key</label><input id="cp-api-key" type="password" placeholder="sk-ant-..." style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:5px 10px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px;width:200px;outline:none;" /><button onclick="cpTestKey()" style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:5px 10px;color:var(--text);font-size:12px;font-family:'DM Sans',sans-serif;font-weight:700;cursor:pointer;white-space:nowrap;">Test</button><span id="cp-key-status" style="font-size:12px;font-weight:700;white-space:nowrap;"></span></div>
       <button class="btn btn-ghost" id="reload-btn">↑ New File</button>
     </div>
   </header>
@@ -1458,8 +1458,44 @@ function cpRenderRoster(){
   });
 }
 
-function cpSaveKey(){}
-function cpLoadKey(){}
+function cpSaveKey(){
+  var k=(document.getElementById("cp-api-key").value||"").trim();
+  try{if(k)localStorage.setItem("pvi_api_key",k);else localStorage.removeItem("pvi_api_key");}catch(e){}
+}
+
+function cpTestKey(){
+  var k=(document.getElementById("cp-api-key").value||"").trim();
+  var status=document.getElementById("cp-key-status");
+  if(!k){status.textContent="No key entered";status.style.color="var(--amber)";return;}
+  status.textContent="Testing...";status.style.color="var(--muted)";
+  fetch("https://api.anthropic.com/v1/messages",{
+    method:"POST",
+    headers:{"Content-Type":"application/json","x-api-key":k,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+    body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:5,messages:[{role:"user",content:"hi"}]})
+  }).then(function(r){return r.json();})
+  .then(function(d){
+    if(d.error){
+      status.textContent="Invalid key";
+      status.style.color="var(--red)";
+    } else {
+      status.textContent="Key valid";
+      status.style.color="var(--green)";
+      try{localStorage.setItem("pvi_api_key",k);}catch(e){}
+    }
+  }).catch(function(e){
+    status.textContent="Network error";
+    status.style.color="var(--amber)";
+  });
+}
+function cpLoadKey(){
+  try{
+    var k=localStorage.getItem("pvi_api_key");
+    if(k){document.getElementById("cp-api-key").value=k;
+      var s=document.getElementById("cp-key-status");
+      if(s){s.textContent="Saved";s.style.color="var(--green)";}
+    }
+  }catch(e){}
+}
 
 
 function cpFormatPlan(raw){
