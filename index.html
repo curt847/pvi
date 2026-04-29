@@ -419,11 +419,14 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 
   <div class="content" id="main-content">
     <div class="tab-panel active" id="tab-overview">
+      <div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
+        <button class="btn btn-ghost" onclick="ovPrint()" style="display:flex;align-items:center;gap:6px;"><span>🖨️</span> Print / PDF</button>
+      </div>
       <div style="display:flex;gap:16px;align-items:stretch;margin-bottom:20px">
         <div class="peak-card" id="peak-card"><div class="peak-title">All-Time Peak</div><div style="font-size:12px;color:var(--muted)">Loading...</div></div>
         <div class="ms-wrap" id="ms-wrap" style="flex:1;margin-bottom:0"></div>
       </div>
-      <div class="card mb-20">
+      <div class="card mb-20" id="ov-trend-card">
         <div class="card-title">12-Month PVI Trend</div>
         <div class="chart-filter-bar" id="cfilter-bar"></div>
         <div id="trend-wrap"></div>
@@ -1728,6 +1731,70 @@ async function cpGenerate(){
     body.innerHTML='<div class="cp-plain">Error: '+err.message+'</div>';
   }
   btn.disabled=false;btn.innerHTML='<span>&#10022;</span> Regenerate Plan';
+}
+
+function ovPrint(){
+  var today=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+
+  // ── Capture peak card HTML ──
+  var peakEl=document.getElementById('peak-card');
+  var peakHTML=peakEl?peakEl.innerHTML:'';
+
+  // ── Capture milestone tracker HTML ──
+  var msEl=document.getElementById('ms-wrap');
+  var msHTML=msEl?msEl.innerHTML:'';
+
+  // ── Build scores table rows from PORTFOLIOS ──
+  var archs=PORTFOLIOS.filter(function(p){return allRows.some(function(r){return r.portfolio===p.key;});});
+  var scoreRows=archs.map(function(p){
+    var a=calcPVI(p.key,selectedMonth,false),w=calcPVI(p.key,selectedMonth,true);
+    var mod=isMod(p.key,selectedMonth),t=getTier(a),wt=getTier(w);
+    return'<tr>'
+      +'<td style="font-size:15px;font-weight:700;">'+p.icon+' '+p.label+'</td>'
+      +'<td style="font-family:monospace;font-size:20px;font-weight:800;color:'+t.color+'">'+pf(a)+'</td>'
+      +(mod?'<td style="font-family:monospace;font-size:20px;font-weight:800;color:#d97706">'+pf(w)+'</td>':'<td style="color:#888;font-size:14px;">—</td>')
+      +'<td><span style="display:inline-block;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700;border:1px solid '+t.color+';color:'+t.color+';background:'+t.color+'22">'+t.label+'</span>'
+        +(mod&&wt.key!==t.key?' → <span style="display:inline-block;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700;border:1px solid '+wt.color+';color:'+wt.color+';background:'+wt.color+'22">'+wt.label+'</span>':'')
+      +'</td>'
+    +'</tr>';
+  }).join('');
+
+  var styl='*{box-sizing:border-box;margin:0;padding:0;}'
+    +'body{font-family:"Segoe UI",sans-serif;background:#fff;color:#111;padding:36px 44px;font-size:14px;line-height:1.6;}'
+    +'h1{color:#049fd9;font-size:22px;font-weight:800;margin-bottom:4px;}'
+    +'.meta{color:#666;font-size:12px;padding-bottom:16px;border-bottom:3px solid #049fd9;margin-bottom:24px;}'
+    +'h2{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin-bottom:12px;}'
+    +'.section{margin-bottom:28px;}'
+    +'table{width:100%;border-collapse:collapse;}'
+    +'th{background:#f1f5f9;padding:10px 14px;text-align:left;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#64748b;border-bottom:2px solid #e2e8f0;}'
+    +'td{padding:11px 14px;border-bottom:1px solid #f1f5f9;vertical-align:middle;}'
+    +'tr:last-child td{border-bottom:none;}'
+    +'.ms-block{margin-bottom:18px;}'
+    +'.ms-arch-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px;}'
+    +'.ms-arch-name{font-size:15px;font-weight:700;}'
+    +'.ms-scores{display:flex;align-items:center;gap:12px;}'
+    +'.ms-track{position:relative;height:14px;background:#e2e8f0;border-radius:7px;margin-bottom:28px;}'
+    +'.ms-fill{position:absolute;left:0;top:0;height:100%;border-radius:7px;}'
+    +'.ms-marker{position:absolute;top:-3px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;}'
+    +'.ms-tick{width:2px;height:20px;border-radius:1px;}'
+    +'.ms-mlbl{position:absolute;top:24px;font-size:10px;font-weight:700;white-space:nowrap;transform:translateX(-50%);text-align:center;line-height:1.4;}'
+    +'@media print{button{display:none!important}body{padding:20px 28px;}}';
+
+  var pw=window.open('','_blank','width=980,height=750');
+  pw.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>PVI Overview — '+(partnerName||'')+'</title><style>'+styl+'</style></head><body>'
+    +'<h1>PVI Partner Overview</h1>'
+    +'<div class="meta"><strong>'+(partnerName||'')+'</strong>'+(beId?' &middot; BE '+beId:'')+' &middot; Month: '+(selectedMonth||'')+' &middot; Size: '+shirtSize+' &middot; Generated: '+today+'</div>'
+
+    +'<div class="section"><h2>Architecture PVI Scores</h2>'
+    +'<table><thead><tr><th>Architecture</th><th>Current PVI</th><th>What-If PVI</th><th>Tier</th></tr></thead>'
+    +'<tbody>'+scoreRows+'</tbody></table></div>'
+
+    +'<div class="section"><h2>Partner Milestone Tracker</h2>'
+    +'<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:20px;">'+msHTML+'</div></div>'
+
+    +'<br><button onclick="window.print()" style="background:#049fd9;color:#fff;border:none;padding:10px 22px;font-size:14px;font-weight:700;border-radius:6px;cursor:pointer;">🖨️ Print / Save as PDF</button>'
+    +'</body></html>');
+  pw.document.close();
 }
 
 function cpPrintPlan(){
