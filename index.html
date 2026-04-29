@@ -1222,8 +1222,8 @@ function buildReport(){
       '<td class="r mono" style="font-size:18px;font-weight:800;color:'+s.tierFrom.color+'">'+pf(s.actual)+'</td>'+
       '<td class="r mono" style="font-size:18px;font-weight:800;color:var(--amber)">'+pf(s.whatif)+'</td>'+
       '<td class="r"><span class="dchip '+(s.delta>0?'dp':'dn')+'" style="font-size:14px">'+(s.delta>0?'+':'')+pf(s.delta)+'</span></td>'+
-      '<td><span class="tier-badge '+s.tierFrom.cls+'">'+s.tierFrom.label+'</span></td>'+
-      '<td>'+(s.tierFrom.key!==s.tierTo.key?'<span class="tier-badge '+s.tierTo.cls+'">'+s.tierTo.label+'</span>':'<span class="muted" style="font-size:13px">No change</span>')+'</td>'+
+      '<td><span class="tier-badge '+s.tierFrom.cls+'" style="font-size:10px;padding:2px 8px;white-space:nowrap;">'+s.tierFrom.label+'</span></td>'+
+      '<td>'+(s.tierFrom.key!==s.tierTo.key?'<span class="tier-badge '+s.tierTo.cls+'" style="font-size:10px;padding:2px 8px;white-space:nowrap;">'+s.tierTo.label+'</span>':'<span class="muted" style="font-size:13px">No change</span>')+'</td>'+
     '</tr>';
   }).join('');
 
@@ -1915,10 +1915,46 @@ function cpPrintRoster(){
     +'.associate{background:rgba(34,197,94,.12);color:#15803d;border:1px solid rgba(34,197,94,.25);}'
     +'.other{background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;}'
     +'@media print{button{display:none!important}body{padding:16px 22px;}}';
+  // Grab live stat values from the DOM
+  var statTotal=document.getElementById('cs-total')?document.getElementById('cs-total').textContent:'—';
+  var statExpert=document.getElementById('cs-expert')?document.getElementById('cs-expert').textContent:'—';
+  var statProf=document.getElementById('cs-prof')?document.getElementById('cs-prof').textContent:'—';
+  var statAssoc=document.getElementById('cs-assoc')?document.getElementById('cs-assoc').textContent:'—';
+  var statPts=document.getElementById('cs-pts')?document.getElementById('cs-pts').textContent:'—';
+  var statExp=document.getElementById('cs-exp')?document.getElementById('cs-exp').textContent:'—';
+
+  var summaryBoxes='<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:22px;">'
+    +'<div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:12px 14px;">'
+      +'<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#64748b;margin-bottom:6px;">Employees</div>'
+      +'<div style="font-family:monospace;font-size:28px;font-weight:800;color:#049fd9;line-height:1;">'+statTotal+'</div>'
+      +'<div style="font-size:11px;color:#94a3b8;margin-top:3px;">with cert records</div></div>'
+    +'<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:12px 14px;">'
+      +'<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#64748b;margin-bottom:6px;">Expert (CCIE/CCDE)</div>'
+      +'<div style="font-family:monospace;font-size:28px;font-weight:800;color:#d97706;line-height:1;">'+statExpert+'</div>'
+      +'<div style="font-size:11px;color:#94a3b8;margin-top:3px;">10 pts each</div></div>'
+    +'<div style="background:#f5f3ff;border:1px solid #ddd6fe;border-radius:8px;padding:12px 14px;">'
+      +'<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#64748b;margin-bottom:6px;">Professional (CCNP)</div>'
+      +'<div style="font-family:monospace;font-size:28px;font-weight:800;color:#7c3aed;line-height:1;">'+statProf+'</div>'
+      +'<div style="font-size:11px;color:#94a3b8;margin-top:3px;">3 pts each</div></div>'
+    +'<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px 14px;">'
+      +'<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#64748b;margin-bottom:6px;">Associate (CCNA)</div>'
+      +'<div style="font-family:monospace;font-size:28px;font-weight:800;color:#15803d;line-height:1;">'+statAssoc+'</div>'
+      +'<div style="font-size:11px;color:#94a3b8;margin-top:3px;">1 pt each</div></div>'
+    +'<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:12px 14px;">'
+      +'<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#64748b;margin-bottom:6px;">Total PVI Pts</div>'
+      +'<div style="font-family:monospace;font-size:28px;font-weight:800;color:#ea580c;line-height:1;">'+statPts+'</div>'
+      +'<div style="font-size:11px;color:#94a3b8;margin-top:3px;">career cert score</div></div>'
+    +'<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px 14px;">'
+      +'<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#64748b;margin-bottom:6px;">Expiring &lt;6mo</div>'
+      +'<div style="font-family:monospace;font-size:28px;font-weight:800;color:#dc2626;line-height:1;">'+statExp+'</div>'
+      +'<div style="font-size:11px;color:#94a3b8;margin-top:3px;">need renewal</div></div>'
+    +'</div>';
+
   var pw=window.open('','_blank','width=1100,height=800');
   pw.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Certification Roster</title><style>'+styl+'</style></head><body>'
     +'<h1>Certification Roster</h1>'
     +'<div class="meta"><strong>'+(partnerName||'')+'</strong> &middot; Generated: '+today+' &middot; Month: '+(selectedMonth||'')+' &middot; Size: '+shirtSize+'</div>'
+    +summaryBoxes
     +'<table><thead><tr><th>Employee</th><th>Active PVI Certs</th><th>PVI Pts</th><th>Other Certs</th></tr></thead><tbody>'+tableRows+'</tbody></table>'
     +'<br><button onclick="window.print()" style="background:#049fd9;color:#fff;border:none;padding:9px 20px;font-size:13px;font-weight:700;border-radius:6px;cursor:pointer;margin-top:16px;">Print / Save as PDF</button>'
     +'</body></html>');
