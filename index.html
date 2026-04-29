@@ -1601,21 +1601,26 @@ function cpFormatPlan(raw){
       if(!p[0]||/^[-\s]+$/.test(p[0]))return;
       if(/^(training\s*name|cert\s*name|name|#)$/i.test(p[0]))return;
       if(!cur)cur={title:'',items:[],total:null,candidates:[],currentLevel:null};
-      // Find the pts column: last column matching "N pts" or "Npts"
+      // Expected format: "Title | X pts"
+      // Also handle: "N | Title | X pts" (numbered), "Title | X pts | Level" (3-col)
+      // Strategy: find the pts column (matches digits+pts), use col before it (or all before) as name
       var ptsIdx=-1;
-      for(var ci=p.length-1;ci>=0;ci--){if(/^[\d.]+\s*pts?$/i.test(p[ci])){ptsIdx=ci;break;}}
-      var pts=ptsIdx>=0?p[ptsIdx]:'';
-      // Build name from remaining columns, skipping leading number and trailing pts
-      var nameParts=[];
-      for(var ci2=0;ci2<p.length;ci2++){
-        if(ci2===ptsIdx)continue;
-        if(nameParts.length===0&&/^\d+$/.test(p[ci2]))continue; // skip leading row number
-        nameParts.push(p[ci2]);
+      for(var ci=0;ci<p.length;ci++){if(/^[\d.]+\s*pts?$/i.test(p[ci])){ptsIdx=ci;break;}}
+      var name,pts;
+      if(ptsIdx>=0){
+        // pts found — name is everything before it, skipping a leading bare number
+        pts=p[ptsIdx];
+        var start=/^\d+$/.test(p[0])?1:0;
+        name=p.slice(start,ptsIdx).join(' ').trim();
+      } else {
+        // No pts column — treat last col as pts, rest as name (skip leading number)
+        pts=p[p.length-1];
+        var start2=/^\d+$/.test(p[0])?1:0;
+        name=p.slice(start2,p.length-1).join(' ').trim();
       }
-      var name=nameParts.join(' — ').trim();
-      // If no pts found, treat last col as pts and rest as name
-      if(ptsIdx<0&&p.length>=2){pts=p[p.length-1];name=p.slice(/^\d+$/.test(p[0])?1:0,p.length-1).join(' — ').trim();}
       if(!name||/^[-\s]+$/.test(name))return;
+      // Skip rows where name looks like a header or separator
+      if(/^(training|cert|name|level|item)$/i.test(name))return;
       cur.items.push({name:name,pts:pts,level:cur?cur.currentLevel:null});return;
     }
     // Skip pure separator/filler lines
@@ -1680,15 +1685,21 @@ async function cpGenerate(){
   var bbGapPortfolios=gaps.filter(function(g){return g.type==='blackbelt';}).map(function(g){return g.portfolio;});
   var certGapPortfolios=gaps.filter(function(g){return g.type==='careercert';}).map(function(g){return g.portfolio;});
 
+  // Deduplicate certs by exam code before sending to AI
+  var _seenCodes={};
   var certRef=CP_CERTS.filter(function(c){
-    return['Associate','Professional','Expert'].includes(c['Level Name'])&&certGapPortfolios.indexOf(c['Portfolio'])>=0;
+    if(!['Associate','Professional','Expert'].includes(c['Level Name']))return false;
+    if(certGapPortfolios.indexOf(c['Portfolio'])<0)return false;
+    if(_seenCodes[c['Exam Code']])return false;
+    _seenCodes[c['Exam Code']]=true;
+    return true;
   }).map(function(c){
-    return c['Exam Code']+'|'+c['Exam Name']+'|'+c['Level Name']+'|'+c['Multiplier']+' pts|'+c['Portfolio']+(c['Exam']?'|Exam: '+c['Exam']:'');
+    return c['Exam Name']+' ('+c['Exam Code']+')|'+c['Multiplier']+' pts|'+c['Level Name'];
   }).join('\n');
   var bbRef=CP_BB.filter(function(b){
     return b['PVI Mulitiplier']>=1&&bbGapPortfolios.indexOf(b['PXP Portfolio'])>=0;
   }).map(function(b){
-    return b['PXP Portfolio']+'|'+b['PROGRAM_TRACK']+'|'+b['TRACK']+'|'+b['STAGE']+'|'+b['LM_TITLE']+'|'+b['PVI Mulitiplier']+'pts';
+    return b['LM_TITLE']+'|'+b['PVI Mulitiplier']+' pts';
   }).join('\n');
 
   var hasGaps=gaps.length>0,dpvLoaded=allRows.length>0;
@@ -1705,7 +1716,9 @@ async function cpGenerate(){
     var g=gaps.find(function(x){return x.portfolio===p&&x.type==='blackbelt';});
     outputTemplate+='**RECOMMENDED '+p.toUpperCase()+' BLACK BELT TRAININGS**\n'
       +'ELIGIBLE CANDIDATES: name1, name2 ... (all employees with relevant '+p+' cert background)\n'
-      +'... (STOP adding items the moment running total >= '+g.gapPts.toFixed(1)+' pts. Do not add more.)\n'
+      +'Training Title Here | X pts\n'
+      +'Training Title Here | X pts\n'
+      +'... (STOP the moment running total >= '+g.gapPts.toFixed(1)+' pts)\n'
       +'TOTAL BB PTS NEEDED: '+g.gapPts.toFixed(1)+'\n\n';
   });
   certGapPortfolios.forEach(function(p){
@@ -1713,8 +1726,10 @@ async function cpGenerate(){
     outputTemplate+='**RECOMMENDED '+p.toUpperCase()+' PROFESSIONAL CERTIFICATIONS**\n'
       +'ELIGIBLE CANDIDATES: name1, name2 ... (all employees with relevant '+p+' cert background)\n'
       +'LEVEL: Professional\n'
+      +'Cert Name (Code) | 3 pts\n'
       +'LEVEL: Associate\n'
-      +'... (STOP adding items the moment running total >= '+g.gapPts.toFixed(1)+' pts. Do not add more.)\n'
+      +'Cert Name (Code) | 1 pts\n'
+      +'... (STOP the moment running total >= '+g.gapPts.toFixed(1)+' pts)\n'
       +'TOTAL CERT PTS NEEDED: '+g.gapPts.toFixed(1)+'\n\n';
   });
 
@@ -1726,6 +1741,8 @@ async function cpGenerate(){
     +'\n\nEMPLOYEE STATUS:\n'+JSON.stringify(empSummary,null,1)
     +'\n\nRULES:\n'
     +'- Output ONLY the section(s) below. No other text before, between, or after.\n'
+    +'- ITEM FORMAT: Every training/cert line MUST be exactly: Title | X pts — exactly two pipe-separated values. No extra columns, no numbering, no markdown bullets.\n'
+    +'- Use the EXACT title from the reference list. The second column must be the numeric point value followed by pts (e.g. 1 pts, 1.5 pts, 2 pts, 3 pts).\n'
     +'- For each gap, add items one at a time, track a running total, and STOP the moment the total meets or just exceeds the gap. Do not list extra items.\n'
     +'- Prefer items with the smallest point value that still closes the remaining gap. Use high-value items only when necessary.\n'
     +'- Do NOT default to Meraki. Match BB trainings to the gap portfolio and team cert depth.\n'
