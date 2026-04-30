@@ -1243,9 +1243,9 @@ function buildReport(){
   }
 
   var impactRows=Object.values(archSummary).map(function(s){
-    return'<tr><td style="font-size:15px;font-weight:700">'+s.icon+' '+s.label+'</td>'+
-      '<td class="r mono" style="font-size:18px;font-weight:800;color:'+s.tierFrom.color+'">'+pf(s.actual)+'</td>'+
-      '<td class="r mono" style="font-size:18px;font-weight:800;color:var(--amber)">'+pf(s.whatif)+'</td>'+
+    return'<tr><td style="font-size:13px;font-weight:700;">'+s.icon+' '+s.label+'</td>'+
+      '<td class="r mono" style="font-size:16px;font-weight:800;color:'+s.tierFrom.color+'">'+pf(s.actual)+'</td>'+
+      '<td class="r mono" style="font-size:16px;font-weight:800;color:var(--amber)">'+pf(s.whatif)+'</td>'+
       '<td class="r"><span class="dchip '+(s.delta>0?'dp':'dn')+'" style="font-size:14px">'+(s.delta>0?'+':'')+pf(s.delta)+'</span></td>'+
       '<td><span class="tier-badge '+s.tierFrom.cls+'" style="font-size:10px;padding:2px 8px;white-space:nowrap;">'+s.tierFrom.label+'</span></td>'+
       '<td>'+(s.tierFrom.key!==s.tierTo.key?'<span class="tier-badge '+s.tierTo.cls+'" style="font-size:10px;padding:2px 8px;white-space:nowrap;">'+s.tierTo.label+'</span>':'<span class="muted" style="font-size:13px">No change</span>')+'</td>'+
