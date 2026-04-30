@@ -1387,40 +1387,18 @@ CP_CERTS.forEach(function(c){
   CP_CERT_MAP[c['Exam Code']].push(c);
 });
 
-// ── CERT ALIAS MAP ────────────────────────────────────────────────────────────
-// Maps alternate codes in personnel reports to canonical CP_CERTS Exam Codes.
-// Only codes VERIFIED against Cisco PXP portal counts are included.
-// Old/retired exam codes (pre-2020 CCIE written exams, retired specialists) are excluded.
-var CP_CERT_ALIAS={
-  // Associate exam-code variants (confirmed recognized by Cisco portal)
-  'ENSLD420V1':'CCS-ED',     // Enterprise Design 300-420
-  'CLCOR801V1':'CCS-CCORE',  // Collaboration Core 350-801
-  'CLICA810V1':'CCS-CAI',    // Collaboration Applications 300-810
-  'SCOR701V1':'CCS-SCORE',   // Security Core 350-701
-  'SNCF710V1':'CCS-NSF',     // Network Security Firepower 300-710
-  'DEVASC01V1':'CCDEVA',     // DevNet Associate 200-901
-};
-
 var cpEmployees={};
 
 // TEAM CONFIG: paste Apps Script /exec URL to share key with colleagues
 var CP_GAS_URL = '';
 
 function cpGetLevel(code,desc){
-  // Check alias map first (alternate/exam-specific codes)
-  var canonical=CP_CERT_ALIAS[code];
-  var lookupCode=canonical||code;
-  var arr=CP_CERT_MAP[lookupCode];
+  // Only match exact cert codes from CP_CERTS — no exam aliases
+  var arr=CP_CERT_MAP[code];
   if(arr&&arr.length){
     return arr.map(function(k){return{level:k['Level Name'],points:k['Multiplier'],portfolio:k['Portfolio']};});
   }
-  // Fallback: infer level from code pattern
-  var c=(code||'').toUpperCase();
-  var lvl=null,pts=0;
-  if(c.includes('CCIE')||c.includes('CCDE')){lvl='Expert';pts=10;}
-  else if(c.includes('CCNP')){lvl='Professional';pts=3;}
-  else if(c.includes('CCNA')||c.startsWith('CCS-')){lvl='Associate';pts=1;}
-  return [{level:lvl,points:pts,portfolio:''}];
+  return [{level:null,points:0,portfolio:''}];
 }
 function cpLevelCls(l){if(!l)return'other';var lc=l.toLowerCase();if(lc==='expert')return'expert';if(lc==='professional')return'professional';if(lc.includes('associate'))return'associate';return'other';}
 function cpFmtDate(d){if(!d)return'--';return d.toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'});}
@@ -1487,14 +1465,11 @@ function cpProcessData(rows){
     var lvls=cpGetLevel(code,desc);
     var expiryStatus=null;
     if(expiryDate){expiryStatus=expiryDate<today?'expired':expiryDate<sixMo?'soon':'ok';}
-    var canonicalCode=CP_CERT_ALIAS[code]||code;
     lvls.forEach(function(lvl){
-      // Dedup by CANONICAL cert code + portfolio so exam variants (SCOR701V1) and cert codes (CCS-SCORE) don't double-count
-      var alreadyHave=cpEmployees[key].certs.some(function(x){return x.canonicalCode===canonicalCode&&x.portfolio===lvl.portfolio;});
+      if(!lvl.level)return; // skip unrecognized codes
+      var alreadyHave=cpEmployees[key].certs.some(function(x){return x.code===code&&x.portfolio===lvl.portfolio;});
       if(!alreadyHave){
-        // Prefer the CCS-style code display name if canonical differs from raw
-        var displayCode=canonicalCode!==code?canonicalCode:code;
-        cpEmployees[key].certs.push({code:displayCode,rawCode:code,canonicalCode:canonicalCode,desc:desc,expiryDate:expiryDate,level:lvl.level,points:lvl.points,portfolio:lvl.portfolio,isPVI:lvl.points>0,expiryStatus:expiryStatus});
+        cpEmployees[key].certs.push({code:code,canonicalCode:code,desc:desc,expiryDate:expiryDate,level:lvl.level,points:lvl.points,portfolio:lvl.portfolio,isPVI:lvl.points>0,expiryStatus:expiryStatus});
       }
     });
   });
