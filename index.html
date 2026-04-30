@@ -378,13 +378,35 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 <!-- UPLOAD -->
 <div id="upload-screen">
   <div class="upload-screen">
-    <div class="upload-card">
+    <div class="upload-card" style="max-width:620px;">
       <div style="margin-bottom:14px"><svg width="60" height="37" viewBox="0 0 64 40" fill="none"><rect x="0" y="16" width="8" height="8" rx="2" fill="#049fd9"/><rect x="10" y="8" width="8" height="16" rx="2" fill="#049fd9"/><rect x="20" y="0" width="8" height="24" rx="2" fill="#049fd9"/><rect x="30" y="4" width="8" height="20" rx="2" fill="#049fd9"/><rect x="40" y="0" width="8" height="24" rx="2" fill="#049fd9"/><rect x="50" y="8" width="8" height="16" rx="2" fill="#049fd9"/></svg></div>
       <h2>Cisco PVI Planner</h2>
-      <p>Upload your <strong style="color:#dde7f8">Partner Assessment DPV</strong> file. Use <strong style="color:#f59e0b">What-If</strong> mode to model improvements, then generate a detailed action plan.</p>
-      <div class="drop-zone" id="drop-zone"><div class="dz-icon">📁</div><div class="dz-label">Drop Partner_Assessment_DPV.xlsx here</div><div class="dz-sub">or click to browse  ·  .xlsx / .xls</div></div>
-      <button class="btn btn-blue" id="browse-btn" style="width:100%;padding:12px;font-size:15px">Browse File</button>
+      <p>Upload your <strong style="color:#dde7f8">Partner Assessment DPV</strong> and/or <strong style="color:#fbbf24">Black Belt Certification</strong> files. You may upload one or both before proceeding.</p>
+
+      <!-- Combined drop zone -->
+      <div class="drop-zone" id="drop-zone" style="position:relative;">
+        <div class="dz-icon">📂</div>
+        <div class="dz-label">Drop files here</div>
+        <div class="dz-sub">Accepts: <span style="color:var(--blue)">Partner_Assessment_DPV.xlsx</span> &amp; <span style="color:var(--amber)">BlackBelt_*.xlsx</span></div>
+        <div class="dz-sub" style="margin-top:4px;font-size:11px;color:var(--muted)">Files are auto-detected by name · .xlsx / .xls</div>
+      </div>
+
+      <!-- Uploaded file pills -->
+      <div id="upload-pills" style="display:none;margin-bottom:16px;display:flex;flex-direction:column;gap:8px;"></div>
+
+      <!-- Browse buttons -->
+      <div style="display:flex;gap:8px;margin-bottom:8px;">
+        <button class="btn btn-blue" id="browse-btn" style="flex:1;padding:10px;font-size:13px;">+ DPV File</button>
+        <button class="btn btn-gold" id="browse-bb-btn" style="flex:1;padding:10px;font-size:13px;">+ Black Belt File</button>
+      </div>
       <input type="file" id="file-input" accept=".xlsx,.xls" class="hidden">
+      <input type="file" id="file-bb-input" accept=".xlsx,.xls" class="hidden">
+
+      <!-- Next button (enabled once at least 1 file loaded or skip) -->
+      <button id="next-btn" onclick="proceedToApp()" style="width:100%;padding:12px;font-size:15px;font-weight:800;border-radius:8px;border:none;cursor:pointer;background:linear-gradient(135deg,var(--blue) 0%,#026d94 100%);color:#fff;margin-top:4px;opacity:.4;pointer-events:none;transition:opacity .2s;">
+        Next →
+      </button>
+
       <div style="display:flex;align-items:center;gap:12px;margin-top:14px;">
         <div style="flex:1;height:1px;background:var(--border);"></div>
         <span style="font-size:12px;color:var(--muted);">or</span>
@@ -393,7 +415,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
       <button onclick="skipToCertPlanner()" style="width:100%;margin-top:14px;padding:10px;font-size:13px;font-weight:700;background:transparent;border:1px solid var(--border2);border-radius:8px;color:var(--muted);cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='var(--blue)';this.style.color='var(--blue)'" onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--muted)'">
         Skip to Cert Planner only →
       </button>
-
     </div>
   </div>
 </div>
@@ -561,18 +582,79 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
           </div>
         </div>
         <div class="cp-tbl-wrap">
-          <div class="cp-tbl-hdr"><h3>Certification Roster</h3>
+          <div class="cp-tbl-hdr">
+            <!-- View toggle tabs -->
+            <div style="display:flex;align-items:center;gap:0;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:3px;">
+              <button id="cp-view-certs" onclick="cpSetView('certs')" style="padding:6px 16px;border-radius:6px;font-size:12px;font-weight:800;cursor:pointer;border:none;background:var(--blue);color:#fff;transition:all .15s;">📋 Cert Roster</button>
+              <button id="cp-view-bb" onclick="cpSetView('bb')" style="padding:6px 16px;border-radius:6px;font-size:12px;font-weight:800;cursor:pointer;border:none;background:transparent;color:var(--muted);transition:all .15s;">🥋 Black Belt</button>
+            </div>
             <div style="display:flex;align-items:center;gap:8px;">
               <button class="cp-roster-print-btn" onclick="cpPrintRoster()">&#128424; Print Roster PDF</button>
-              <input class="cp-srch" id="cp-srch" placeholder="Search certs..." oninput="cpRenderRoster()" />
+              <input class="cp-srch" id="cp-srch" placeholder="Search..." oninput="cpRenderRoster()" />
             </div>
           </div>
-          <div class="cp-tbl-scroll">
-            <table class="cp-tbl">
-              <thead><tr><th>Employee</th><th>Active PVI Certs</th><th>PVI Pts</th><th>Other Certs</th></tr></thead>
-              <tbody id="cp-tbl-body"></tbody>
-            </table>
+
+          <!-- CERT ROSTER view -->
+          <div id="cp-view-certs-panel">
+            <div class="cp-tbl-scroll">
+              <table class="cp-tbl">
+                <thead><tr><th>Employee</th><th>Active PVI Certs</th><th>PVI Pts</th><th>Other Certs</th></tr></thead>
+                <tbody id="cp-tbl-body"></tbody>
+              </table>
+            </div>
           </div>
+
+          <!-- BLACK BELT view -->
+          <div id="cp-view-bb-panel" style="display:none;">
+            <div id="cp-bb-no-file" style="text-align:center;padding:32px;color:var(--muted);">
+              <div style="font-size:32px;margin-bottom:10px;">🥋</div>
+              <div style="font-size:14px;font-weight:700;margin-bottom:6px;">No Black Belt file loaded</div>
+              <div style="font-size:12px;">Upload a Black Belt certification spreadsheet from the upload screen to view data here.</div>
+            </div>
+            <!-- BB filters -->
+            <div id="cp-bb-controls" style="display:none;">
+              <div class="cp-filters" style="margin-bottom:12px;">
+                <select class="cp-filter-sel" id="cp-bb-port-sel" onchange="cpRenderBBRoster()">
+                  <option value="">All portfolios</option>
+                  <option>Networking</option><option>Security</option>
+                  <option>Collaboration</option><option>Cloud + AI Infrastructure</option><option>Services</option>
+                </select>
+                <select class="cp-filter-sel" id="cp-bb-track-sel" onchange="cpRenderBBRoster()">
+                  <option value="">All tracks</option>
+                  <option>Sales</option><option>Pre-Sales</option><option>Deployment</option><option>Support</option><option>CX</option><option>Operations</option>
+                </select>
+                <select class="cp-filter-sel" id="cp-bb-stage-sel" onchange="cpRenderBBRoster()">
+                  <option value="">All stages</option>
+                  <option>Stage 1</option><option>Stage 2</option><option>Stage 3</option>
+                </select>
+                <select class="cp-filter-sel" id="cp-bb-sort-sel" onchange="cpRenderBBRoster()">
+                  <option value="">Sort: Default</option>
+                  <option value="pts_desc">Sort: BB Points (High→Low)</option>
+                  <option value="pts_asc">Sort: BB Points (Low→High)</option>
+                  <option value="name">Sort: Name (A→Z)</option>
+                </select>
+              </div>
+              <!-- BB summary stats -->
+              <div id="cp-bb-stats" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;padding:14px 16px;background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.2);border-radius:10px;">
+                <div><div style="font-size:10px;font-weight:800;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;">Employees w/ BB</div><div style="font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:800;color:var(--amber);line-height:1;" id="cp-bb-stat-emp">—</div></div>
+                <div style="width:1px;background:var(--border);"></div>
+                <div><div style="font-size:10px;font-weight:800;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;">Stage 3 (2× pts)</div><div style="font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:800;color:#f59e0b;line-height:1;" id="cp-bb-stat-s3">—</div></div>
+                <div style="width:1px;background:var(--border);"></div>
+                <div><div style="font-size:10px;font-weight:800;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;">Stage 2 (1.5× pts)</div><div style="font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:800;color:#a78bfa;line-height:1;" id="cp-bb-stat-s2">—</div></div>
+                <div style="width:1px;background:var(--border);"></div>
+                <div><div style="font-size:10px;font-weight:800;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;">Stage 1 (1× pts)</div><div style="font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:800;color:var(--green);line-height:1;" id="cp-bb-stat-s1">—</div></div>
+                <div style="width:1px;background:var(--border);"></div>
+                <div><div style="font-size:10px;font-weight:800;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;">Total BB Points</div><div style="font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:800;color:var(--blue2);line-height:1;" id="cp-bb-stat-pts">—</div></div>
+              </div>
+              <div class="cp-tbl-scroll">
+                <table class="cp-tbl">
+                  <thead><tr><th>Employee</th><th>Black Belt Certifications</th><th>BB Points</th><th>Portfolio</th></tr></thead>
+                  <tbody id="cp-bb-tbl-body"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
     </div>
@@ -683,13 +765,6 @@ var BENEFITS={
 var allRows=[],months=[],selectedMonth='',whatIfMap={},partnerName='',beId='',chartFilter=null,shirtSize='S';
 
 // ── WIRE UP ──────────────────────────────────────────────────────────────────
-var dz=document.getElementById('drop-zone'),fi=document.getElementById('file-input');
-dz.addEventListener('dragover',function(e){e.preventDefault();dz.classList.add('drag-over');});
-dz.addEventListener('dragleave',function(){dz.classList.remove('drag-over');});
-dz.addEventListener('drop',function(e){e.preventDefault();dz.classList.remove('drag-over');handleFile(e.dataTransfer.files[0]);});
-dz.addEventListener('click',function(){fi.click();});
-document.getElementById('browse-btn').addEventListener('click',function(){fi.click();});
-fi.addEventListener('change',function(){if(fi.files[0])handleFile(fi.files[0]);});
 document.getElementById('reload-btn').addEventListener('click',function(){fi.click();});
 document.getElementById('wi-banner').addEventListener('click',resetAllWhatIf);
 document.getElementById('month-select').addEventListener('change',function(){selectedMonth=this.value;renderAll();});
@@ -704,6 +779,17 @@ function handleFile(f){
       parseData(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''}));
     }catch(err){alert('Error: '+err.message);}
   };r.readAsArrayBuffer(f);
+}
+
+// Alias for proceedToApp — takes JSON rows directly (already parsed)
+function processData(rows){
+  // rows is array of objects (from sheet_to_json with defval:null)
+  // we need to re-parse as the raw header-based format
+  if(!rows||!rows.length)return;
+  // Convert object rows back to header+data format for parseData
+  var keys=Object.keys(rows[0]);
+  var raw=[keys].concat(rows.map(function(r){return keys.map(function(k){return r[k];});}));
+  parseData(raw);
 }
 
 function parseData(raw){
@@ -2178,6 +2264,7 @@ function cpPrintRoster(){
 }
 
 (function(){
+  // CP drop zone (inside app for personnel report)
   var cdz=document.getElementById('cp-drop'),cfi=document.getElementById('cp-file-input');
   if(cdz&&cfi){
     cfi.addEventListener('change',function(){if(cfi.files[0])cpHandleFile(cfi.files[0]);});
@@ -2185,7 +2272,225 @@ function cpPrintRoster(){
     cdz.addEventListener('dragleave',function(){cdz.classList.remove('drag-over');});
     cdz.addEventListener('drop',function(e){e.preventDefault();cdz.classList.remove('drag-over');if(e.dataTransfer.files[0])cpHandleFile(e.dataTransfer.files[0]);});
   }
+
+  // Upload screen dual-file logic
+  var uploadedDPV=null, uploadedBB=null;
+
+  function isBlackBeltFile(name){
+    var n=name.toLowerCase();
+    return n.includes('black')&&n.includes('belt')||n.includes('blackbelt')||n.includes('bb_')||n.includes('_bb.');
+  }
+
+  function updatePills(){
+    var pillsEl=document.getElementById('upload-pills');
+    var nextBtn=document.getElementById('next-btn');
+    var pills='';
+    if(uploadedDPV) pills+='<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:rgba(4,159,217,.1);border:1px solid rgba(4,159,217,.3);border-radius:8px;">'
+      +'<span style="color:var(--blue);font-size:16px;">📊</span>'
+      +'<span style="font-size:13px;font-weight:700;color:var(--text);">'+uploadedDPV.name+'</span>'
+      +'<span style="font-size:11px;color:var(--blue);margin-left:2px;">DPV</span>'
+      +'<button onclick="uploadedDPV=null;updatePills();" style="margin-left:auto;background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;">✕</button></div>';
+    if(uploadedBB) pills+='<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);border-radius:8px;">'
+      +'<span style="color:var(--amber);font-size:16px;">🥋</span>'
+      +'<span style="font-size:13px;font-weight:700;color:var(--text);">'+uploadedBB.name+'</span>'
+      +'<span style="font-size:11px;color:var(--amber);margin-left:2px;">Black Belt</span>'
+      +'<button onclick="uploadedBB=null;updatePills();" style="margin-left:auto;background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;">✕</button></div>';
+    pillsEl.innerHTML=pills;
+    pillsEl.style.display=(uploadedDPV||uploadedBB)?'flex':'none';
+    var hasFile=!!(uploadedDPV||uploadedBB);
+    nextBtn.style.opacity=hasFile?'1':'0.4';
+    nextBtn.style.pointerEvents=hasFile?'auto':'none';
+  }
+  window.updatePills=updatePills;
+
+  function routeUploadFile(file){
+    if(isBlackBeltFile(file.name)){uploadedBB=file;}
+    else{uploadedDPV=file;}
+    updatePills();
+  }
+
+  // DPV browse button
+  var browseBtn=document.getElementById('browse-btn');
+  var fileInput=document.getElementById('file-input');
+  var browseBBBtn=document.getElementById('browse-bb-btn');
+  var fileBBInput=document.getElementById('file-bb-input');
+  if(browseBtn&&fileInput){
+    browseBtn.addEventListener('click',function(){fileInput.click();});
+    fileInput.addEventListener('change',function(){if(fileInput.files[0])routeUploadFile(fileInput.files[0]);});
+  }
+  if(browseBBBtn&&fileBBInput){
+    browseBBBtn.addEventListener('click',function(){fileBBInput.click();});
+    fileBBInput.addEventListener('change',function(){if(fileBBInput.files[0]){uploadedBB=fileBBInput.files[0];updatePills();}});
+  }
+
+  // Drop zone on upload screen
+  var dz=document.getElementById('drop-zone');
+  if(dz){
+    dz.addEventListener('click',function(){fileInput.click();});
+    dz.addEventListener('dragover',function(e){e.preventDefault();dz.classList.add('drag-over');});
+    dz.addEventListener('dragleave',function(){dz.classList.remove('drag-over');});
+    dz.addEventListener('drop',function(e){
+      e.preventDefault();dz.classList.remove('drag-over');
+      var files=e.dataTransfer.files;
+      for(var i=0;i<files.length;i++) routeUploadFile(files[i]);
+    });
+  }
+
+  // Next button: process queued files then show app
+  window.proceedToApp=function(){
+    var pending=[];
+    if(uploadedDPV) pending.push({file:uploadedDPV,type:'dpv'});
+    if(uploadedBB) pending.push({file:uploadedBB,type:'bb'});
+    if(!pending.length){skipToCertPlanner();return;}
+    var processed=0;
+    var hasDPV=!!uploadedDPV;
+    function done(){
+      processed++;
+      if(processed===pending.length){
+        if(!hasDPV){
+          // BB only — manually enter app
+          partnerName='No DPV loaded';beId='—';allRows=[];months=[];selectedMonth='';
+          document.getElementById('upload-screen').classList.add('hidden');
+          document.getElementById('app-shell').classList.remove('hidden');
+          document.getElementById('h-partner').textContent='Cert Planner';
+          document.getElementById('h-meta').textContent='No DPV loaded — BB file loaded';
+          document.getElementById('score-ribbon').classList.add('hidden');
+          switchTab('certs');
+        }
+        // DPV path: initUI already showed the app via parseData
+      }
+    }
+    pending.forEach(function(p){
+      var reader=new FileReader();
+      reader.onload=function(e){
+        try{
+          var wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true});
+          var rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:null});
+          if(p.type==='dpv'){processData(rows);}
+          else if(p.type==='bb'){cpHandleBBData(rows);}
+        }catch(err){alert('Error reading '+p.file.name+': '+err.message);}
+        done();
+      };
+      reader.readAsArrayBuffer(p.file);
+    });
+  };
 })();
+
+// ── BLACK BELT DATA & VIEW ────────────────────────────────────────────────────
+var bbEmployees={};
+
+function cpHandleBBData(rows){
+  if(!rows||!rows.length)return;
+  var sample=rows[0];
+  var keys=Object.keys(sample);
+  function findKey(candidates){
+    for(var i=0;i<candidates.length;i++){
+      var c=candidates[i].toLowerCase();
+      var found=keys.find(function(k){return k.toLowerCase().includes(c);});
+      if(found)return found;
+    }return null;
+  }
+  var kFirst=findKey(['first name','first_name','firstname','fname']);
+  var kLast=findKey(['last name','last_name','lastname','lname']);
+  var kEmail=findKey(['email','e-mail']);
+  var kTitle=findKey(['lm_title','program title','title','training name','course']);
+  var kPort=findKey(['pxp portfolio','portfolio','arch']);
+  var kTrack=findKey(['track']);
+  var kStage=findKey(['stage']);
+  var kMult=findKey(['multiplier','pvi mult','pts']);
+
+  bbEmployees={};
+  rows.forEach(function(row){
+    var first=kFirst?String(row[kFirst]||'').trim():'';
+    var last=kLast?String(row[kLast]||'').trim():'';
+    var email=kEmail?String(row[kEmail]||'').trim():'';
+    var name=(first+' '+last).trim();
+    if(!name||name===' ')name=email||'Unknown';
+    if(!name)return;
+    if(!bbEmployees[name])bbEmployees[name]={name:name,email:email,completions:[]};
+    var title=kTitle?String(row[kTitle]||'').trim():'';
+    var port=kPort?String(row[kPort]||'').trim():'';
+    var track=kTrack?String(row[kTrack]||'').trim():'';
+    var stage=kStage?String(row[kStage]||'').trim():'';
+    var mult=kMult?parseFloat(row[kMult])||1.0:1.0;
+    if(!kMult&&title){var m=CP_BB.find(function(b){return b['LM_TITLE']===title;});if(m)mult=m['PVI Mulitiplier']||1.0;}
+    if(title)bbEmployees[name].completions.push({title:title,portfolio:port,track:track,stage:stage,multiplier:mult});
+  });
+  var noFile=document.getElementById('cp-bb-no-file');
+  var ctrl=document.getElementById('cp-bb-controls');
+  if(noFile)noFile.style.display='none';
+  if(ctrl)ctrl.style.display='block';
+  cpRenderBBRoster();
+}
+
+function cpSetView(view){
+  var certPanel=document.getElementById('cp-view-certs-panel');
+  var bbPanel=document.getElementById('cp-view-bb-panel');
+  var certBtn=document.getElementById('cp-view-certs');
+  var bbBtn=document.getElementById('cp-view-bb');
+  if(!certPanel||!bbPanel)return;
+  if(view==='certs'){
+    certPanel.style.display='';bbPanel.style.display='none';
+    certBtn.style.background='var(--blue)';certBtn.style.color='#fff';
+    bbBtn.style.background='transparent';bbBtn.style.color='var(--muted)';
+  } else {
+    certPanel.style.display='none';bbPanel.style.display='';
+    bbBtn.style.background='var(--amber)';bbBtn.style.color='#000';
+    certBtn.style.background='transparent';certBtn.style.color='var(--muted)';
+  }
+}
+
+function cpRenderBBRoster(){
+  var portF=((document.getElementById('cp-bb-port-sel')||{}).value)||'';
+  var trackF=((document.getElementById('cp-bb-track-sel')||{}).value)||'';
+  var stageF=((document.getElementById('cp-bb-stage-sel')||{}).value)||'';
+  var sortF=((document.getElementById('cp-bb-sort-sel')||{}).value)||'';
+  var srch=(((document.getElementById('cp-srch')||{}).value)||'').toLowerCase();
+  var tbody=document.getElementById('cp-bb-tbl-body');
+  if(!tbody)return;
+  var empArr=Object.values(bbEmployees);
+  var rows=[];
+  empArr.forEach(function(emp){
+    var comps=emp.completions.filter(function(c){
+      if(portF&&c.portfolio!==portF)return false;
+      if(trackF&&c.track!==trackF)return false;
+      if(stageF&&c.stage!==stageF)return false;
+      if(srch&&!c.title.toLowerCase().includes(srch)&&!emp.name.toLowerCase().includes(srch))return false;
+      return true;
+    });
+    if(!comps.length)return;
+    var totalPts=comps.reduce(function(s,c){return s+c.multiplier;},0);
+    rows.push({emp:emp,comps:comps,totalPts:totalPts});
+  });
+  if(sortF==='pts_desc')rows.sort(function(a,b){return b.totalPts-a.totalPts;});
+  else if(sortF==='pts_asc')rows.sort(function(a,b){return a.totalPts-b.totalPts;});
+  else if(sortF==='name')rows.sort(function(a,b){return a.emp.name.localeCompare(b.emp.name);});
+  var statEmp=rows.length,statS3=0,statS2=0,statS1=0,statPts=0;
+  rows.forEach(function(r){r.comps.forEach(function(c){
+    if(c.stage==='Stage 3')statS3++;else if(c.stage==='Stage 2')statS2++;else statS1++;
+    statPts+=c.multiplier;
+  });});
+  function setEl(id,v){var el=document.getElementById(id);if(el)el.textContent=v;}
+  setEl('cp-bb-stat-emp',statEmp);setEl('cp-bb-stat-s3',statS3);setEl('cp-bb-stat-s2',statS2);setEl('cp-bb-stat-s1',statS1);setEl('cp-bb-stat-pts',statPts.toFixed(1));
+  tbody.innerHTML='';
+  var sc={'Stage 3':'var(--amber)','Stage 2':'#a78bfa','Stage 1':'var(--green)'};
+  rows.forEach(function(row){
+    var tr=document.createElement('tr');
+    var html=row.comps.map(function(c){
+      return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">'
+        +'<span style="font-size:10px;font-weight:800;padding:1px 6px;border-radius:3px;background:rgba(255,255,255,.07);color:'+(sc[c.stage]||'var(--muted)')+';white-space:nowrap;">'+(c.stage||'?')+'</span>'
+        +'<span style="font-size:13px;color:var(--text);">'+c.title+'</span>'
+        +(c.track?'<span style="font-size:10px;color:var(--muted);margin-left:4px;">'+c.track+'</span>':'')
+        +'</div>';
+    }).join('');
+    var ptCol=row.totalPts>=2?'#f59e0b':row.totalPts>=1.5?'#a78bfa':'var(--green)';
+    tr.innerHTML='<td><div class="cp-name">'+row.emp.name+'</div><div class="cp-email">'+row.emp.email+'</div></td>'
+      +'<td>'+html+'</td>'
+      +'<td><span class="cp-pts" style="color:'+ptCol+'">'+row.totalPts.toFixed(1)+'</span></td>'
+      +'<td style="color:var(--muted);font-size:12px;">'+(row.comps[0]&&row.comps[0].portfolio||'—')+'</td>';
+    tbody.appendChild(tr);
+  });
+}
 
 cpLoadKey();
 
