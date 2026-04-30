@@ -1743,8 +1743,13 @@ function cpFormatPlan(raw){
         lastLevel=item.level;
       }
       var metaBadges='';
-      if(item.crossArch)metaBadges+='<span style="font-size:10px;font-weight:700;background:rgba(168,85,247,.15);border:1px solid rgba(168,85,247,.3);color:#a78bfa;padding:1px 7px;border-radius:10px;margin-left:6px;white-space:nowrap;">⟷ '+item.crossArch.replace('CROSS-ARCH: ','')+'</span>';
-      if(item.dur)metaBadges+='<span style="font-size:10px;font-weight:700;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.25);color:#22c55e;padding:1px 7px;border-radius:10px;margin-left:6px;white-space:nowrap;">⏱ '+item.dur+'</span>';
+      // Look up all portfolios this training covers directly from CP_BB data
+      var _bbPorts=[];
+      CP_BB.forEach(function(b){if(b['LM_TITLE']===item.name&&_bbPorts.indexOf(b['PXP Portfolio'])<0)_bbPorts.push(b['PXP Portfolio']);});
+      if(_bbPorts.length>1){
+        metaBadges+='<span style="font-size:10px;font-weight:700;background:rgba(168,85,247,.15);border:1px solid rgba(168,85,247,.3);color:#a78bfa;padding:2px 8px;border-radius:10px;margin-left:6px;white-space:nowrap;">⟷ '+_bbPorts.join(' + ')+'</span>';
+      }
+      if(item.dur)metaBadges+='<span style="font-size:10px;font-weight:700;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.25);color:#22c55e;padding:2px 8px;border-radius:10px;margin-left:6px;white-space:nowrap;">⏱ '+item.dur+'</span>';
       o+='<div class="cp-item-no-who">'
         +'<div class="cp-item-name">'+item.name+metaBadges+'</div>'
         +'<div class="cp-item-pts">'+item.pts+'</div>'
