@@ -1695,22 +1695,25 @@ function cpFormatPlan(raw){
       // Strategy: find the pts column (matches digits+pts), use col before it (or all before) as name
       var ptsIdx=-1;
       for(var ci=0;ci<p.length;ci++){if(/^[\d.]+\s*pts?$/i.test(p[ci])){ptsIdx=ci;break;}}
-      var name,pts;
+      var name,pts,dur=null,crossArch=null;
       if(ptsIdx>=0){
-        // pts found — name is everything before it, skipping a leading bare number
         pts=p[ptsIdx];
         var start=/^\d+$/.test(p[0])?1:0;
         name=p.slice(start,ptsIdx).join(' ').trim();
+        // capture extra columns after pts: duration (e.g. "29min"), cross-arch (e.g. "[CROSS-ARCH: X + Y]")
+        for(var ci2=ptsIdx+1;ci2<p.length;ci2++){
+          var col=p[ci2].trim();
+          if(/^\d+min$/i.test(col))dur=col;
+          else if(/cross.arch/i.test(col)||col.startsWith('['))crossArch=col.replace(/^\[|\]$/g,'');
+        }
       } else {
-        // No pts column — treat last col as pts, rest as name (skip leading number)
         pts=p[p.length-1];
         var start2=/^\d+$/.test(p[0])?1:0;
         name=p.slice(start2,p.length-1).join(' ').trim();
       }
       if(!name||/^[-\s]+$/.test(name))return;
-      // Skip rows where name looks like a header or separator
       if(/^(training|cert|name|level|item)$/i.test(name))return;
-      cur.items.push({name:name,pts:pts,level:cur?cur.currentLevel:null});return;
+      cur.items.push({name:name,pts:pts,level:cur?cur.currentLevel:null,dur:dur,crossArch:crossArch});return;
     }
     // Skip pure separator/filler lines
     if(/^[-=#*\s]+$/.test(t)||/^\d+$/.test(t))return;
@@ -1739,8 +1742,11 @@ function cpFormatPlan(raw){
         o+='<div class="cp-level-label">'+item.level+'</div>';
         lastLevel=item.level;
       }
+      var metaBadges='';
+      if(item.crossArch)metaBadges+='<span style="font-size:10px;font-weight:700;background:rgba(168,85,247,.15);border:1px solid rgba(168,85,247,.3);color:#a78bfa;padding:1px 7px;border-radius:10px;margin-left:6px;white-space:nowrap;">⟷ '+item.crossArch.replace('CROSS-ARCH: ','')+'</span>';
+      if(item.dur)metaBadges+='<span style="font-size:10px;font-weight:700;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.25);color:#22c55e;padding:1px 7px;border-radius:10px;margin-left:6px;white-space:nowrap;">⏱ '+item.dur+'</span>';
       o+='<div class="cp-item-no-who">'
-        +'<div class="cp-item-name">'+item.name+'</div>'
+        +'<div class="cp-item-name">'+item.name+metaBadges+'</div>'
         +'<div class="cp-item-pts">'+item.pts+'</div>'
         +'</div>';
     });
@@ -1821,8 +1827,8 @@ async function cpGenerate(){
     var g=gaps.find(function(x){return x.portfolio===p&&x.type==='blackbelt';});
     outputTemplate+='**RECOMMENDED '+p.toUpperCase()+' BLACK BELT TRAININGS**\n'
       +'ELIGIBLE CANDIDATES: name1, name2 ... (all employees with relevant '+p+' cert background)\n'
-      +'Training Title Here | X pts\n'
-      +'Training Title Here | X pts\n'
+      +'Training Title Here | X pts | Ymin | [CROSS-ARCH: Port1 + Port2]\n'
+      +'Training Title Here | X pts | Zmin\n'
       +'... (STOP the moment running total >= '+g.gapPts.toFixed(1)+' pts)\n'
       +'TOTAL BB PTS NEEDED: '+g.gapPts.toFixed(1)+'\n\n';
   });
