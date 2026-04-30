@@ -378,31 +378,24 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 <!-- UPLOAD -->
 <div id="upload-screen">
   <div class="upload-screen">
-    <div class="upload-card" style="max-width:620px;">
+    <div class="upload-card" style="max-width:560px;">
       <div style="margin-bottom:14px"><svg width="60" height="37" viewBox="0 0 64 40" fill="none"><rect x="0" y="16" width="8" height="8" rx="2" fill="#049fd9"/><rect x="10" y="8" width="8" height="16" rx="2" fill="#049fd9"/><rect x="20" y="0" width="8" height="24" rx="2" fill="#049fd9"/><rect x="30" y="4" width="8" height="20" rx="2" fill="#049fd9"/><rect x="40" y="0" width="8" height="24" rx="2" fill="#049fd9"/><rect x="50" y="8" width="8" height="16" rx="2" fill="#049fd9"/></svg></div>
       <h2>Cisco PVI Planner</h2>
-      <p>Upload your <strong style="color:#dde7f8">Partner Assessment DPV</strong> and/or <strong style="color:#fbbf24">Black Belt Certification</strong> files. You may upload one or both before proceeding.</p>
+      <p>Upload your <strong style="color:#dde7f8">Partner Assessment DPV</strong> to get started. Personnel reports and Black Belt files can be loaded from the Cert Planner screen.</p>
 
-      <!-- Combined drop zone -->
+      <!-- DPV drop zone -->
       <div class="drop-zone" id="drop-zone" style="position:relative;">
-        <div class="dz-icon">📂</div>
-        <div class="dz-label">Drop files here</div>
-        <div class="dz-sub">Accepts: <span style="color:var(--blue)">Partner_Assessment_DPV.xlsx</span> &amp; <span style="color:var(--amber)">BlackBelt_*.xlsx</span></div>
-        <div class="dz-sub" style="margin-top:4px;font-size:11px;color:var(--muted)">Files are auto-detected by name · .xlsx / .xls</div>
+        <input type="file" id="file-input" accept=".xlsx,.xls" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;">
+        <div class="dz-icon">📊</div>
+        <div class="dz-label">Drop DPV File Here</div>
+        <div class="dz-sub">Drag &amp; drop or click &middot; <span style="color:var(--blue)">Partner_Assessment_DPV.xlsx</span></div>
+        <div class="dz-sub" style="margin-top:4px;font-size:11px;color:var(--muted)">.xlsx / .xls accepted</div>
       </div>
 
-      <!-- Uploaded file pills -->
-      <div id="upload-pills" style="display:none;margin-bottom:16px;display:flex;flex-direction:column;gap:8px;"></div>
+      <!-- Uploaded file pill -->
+      <div id="upload-pills" style="display:none;margin-bottom:16px;flex-direction:column;gap:8px;"></div>
 
-      <!-- Browse buttons -->
-      <div style="display:flex;gap:8px;margin-bottom:8px;">
-        <button class="btn btn-blue" id="browse-btn" style="flex:1;padding:10px;font-size:13px;">+ DPV File</button>
-        <button class="btn btn-gold" id="browse-bb-btn" style="flex:1;padding:10px;font-size:13px;">+ Black Belt File</button>
-      </div>
-      <input type="file" id="file-input" accept=".xlsx,.xls" class="hidden">
-      <input type="file" id="file-bb-input" accept=".xlsx,.xls" class="hidden">
-
-      <!-- Next button (enabled once at least 1 file loaded or skip) -->
+      <!-- Next button (enabled once DPV loaded) -->
       <button id="next-btn" onclick="proceedToApp()" style="width:100%;padding:12px;font-size:15px;font-weight:800;border-radius:8px;border:none;cursor:pointer;background:linear-gradient(135deg,var(--blue) 0%,#026d94 100%);color:#fff;margin-top:4px;opacity:.4;pointer-events:none;transition:opacity .2s;">
         Next →
       </button>
@@ -413,7 +406,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
         <div style="flex:1;height:1px;background:var(--border);"></div>
       </div>
       <button onclick="skipToCertPlanner()" style="width:100%;margin-top:14px;padding:10px;font-size:13px;font-weight:700;background:transparent;border:1px solid var(--border2);border-radius:8px;color:var(--muted);cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='var(--blue)';this.style.color='var(--blue)'" onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--muted)'">
-        Skip to Cert Planner only →
+        Skip — go to Cert Planner →
       </button>
     </div>
   </div>
@@ -524,7 +517,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
           <input type="file" id="cp-bb-file-input" accept=".xlsx,.xls" />
           <div class="cp-drop-icon">&#129355;</div>
           <div class="cp-drop-title" style="color:var(--amber);">Drop Black Belt File Here</div>
-          <div class="cp-drop-sub">Drag &amp; drop or click &middot; <span style="color:var(--amber);">Black Belt completion spreadsheet</span></div>
+          <div class="cp-drop-sub">Drag &amp; drop or click &middot; <span style="color:var(--amber);">Participant_Details*.xlsx</span></div>
         </div>
       </div>
       <div class="cp-stats" id="cp-stats" style="display:none">
@@ -617,8 +610,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
             <div id="cp-bb-no-file" style="text-align:center;padding:36px 20px;color:var(--muted);">
               <div style="font-size:36px;margin-bottom:12px;">🥋</div>
               <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">No Black Belt file loaded</div>
-              <div style="font-size:12px;margin-bottom:20px;">Upload a Black Belt employee completion spreadsheet to view training data.</div>
-              <label for="cp-bb-inline-input" style="display:inline-block;padding:9px 22px;border-radius:8px;background:rgba(251,191,36,.14);border:1px solid rgba(251,191,36,.45);color:var(--amber);font-size:13px;font-weight:700;cursor:pointer;transition:background .15s;" onmouseover="this.style.background='rgba(251,191,36,.24)'" onmouseout="this.style.background='rgba(251,191,36,.14)'">
+              <div style="font-size:12px;margin-bottom:18px;">Upload a Participant Details spreadsheet (from Cisco Black Belt Academy) to view training data.</div>
+              <label for="cp-bb-inline-input" style="display:inline-block;padding:9px 22px;border-radius:8px;background:rgba(251,191,36,.14);border:1px solid rgba(251,191,36,.45);color:var(--amber);font-size:13px;font-weight:700;cursor:pointer;" onmouseover="this.style.background='rgba(251,191,36,.24)'" onmouseout="this.style.background='rgba(251,191,36,.14)'">
                 🥋 Upload Black Belt File
               </label>
               <input type="file" id="cp-bb-inline-input" accept=".xlsx,.xls" style="display:none;" />
@@ -1606,7 +1599,9 @@ function cpProcessData(rows){
     });
   });
   cpRenderStats();cpPopulatePersonSel();cpRenderRoster();
-  document.getElementById('cp-upload-row').style.display='none';
+  var uploadRow=document.getElementById('cp-upload-row');
+  if(uploadRow)uploadRow.style.display='none';
+  document.getElementById('cp-drop').style.display='none';
   document.getElementById('cp-stats').style.display='grid';
   document.getElementById('cp-gen-row').style.display='flex';
   document.getElementById('cp-roster').style.display='block';
@@ -2276,7 +2271,7 @@ function cpPrintRoster(){
 }
 
 (function(){
-  // Personnel report drop zone
+  // ── Personnel report drop zone (cert planner) ──
   var cdz=document.getElementById('cp-drop'),cfi=document.getElementById('cp-file-input');
   if(cdz&&cfi){
     cfi.addEventListener('change',function(){if(cfi.files[0])cpHandleFile(cfi.files[0]);});
@@ -2285,7 +2280,7 @@ function cpPrintRoster(){
     cdz.addEventListener('drop',function(e){e.preventDefault();cdz.classList.remove('drag-over');if(e.dataTransfer.files[0])cpHandleFile(e.dataTransfer.files[0]);});
   }
 
-  // BB drop zone (top of cert planner)
+  // ── BB drop zone (cert planner top) ──
   var bbdz=document.getElementById('cp-bb-drop'),bbfi=document.getElementById('cp-bb-file-input');
   if(bbdz&&bbfi){
     bbfi.addEventListener('change',function(){if(bbfi.files[0])cpHandleBBFile(bbfi.files[0]);});
@@ -2297,19 +2292,13 @@ function cpPrintRoster(){
     });
   }
 
-  // BB inline input (inside BB panel no-file message)
+  // ── BB inline upload button (inside BB panel) ──
   var bbInline=document.getElementById('cp-bb-inline-input');
-  if(bbInline){
-    bbInline.addEventListener('change',function(){if(bbInline.files[0])cpHandleBBFile(bbInline.files[0]);});
-  }
+  if(bbInline)bbInline.addEventListener('change',function(){if(bbInline.files[0])cpHandleBBFile(bbInline.files[0]);});
 
-  // Upload screen dual-file logic
-  var uploadedDPV=null, uploadedBB=null;
-
-  function isBlackBeltFile(name){
-    var n=name.toLowerCase();
-    return n.includes('black')&&n.includes('belt')||n.includes('blackbelt')||n.includes('bb_')||n.includes('_bb.');
-  }
+  // ── Upload screen — DPV only ──
+  var uploadedDPV=null;
+  var fileInput=document.getElementById('file-input');
 
   function updatePills(){
     var pillsEl=document.getElementById('upload-pills');
@@ -2320,89 +2309,42 @@ function cpPrintRoster(){
       +'<span style="font-size:13px;font-weight:700;color:var(--text);">'+uploadedDPV.name+'</span>'
       +'<span style="font-size:11px;color:var(--blue);margin-left:2px;">DPV</span>'
       +'<button onclick="uploadedDPV=null;updatePills();" style="margin-left:auto;background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;">✕</button></div>';
-    if(uploadedBB) pills+='<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);border-radius:8px;">'
-      +'<span style="color:var(--amber);font-size:16px;">🥋</span>'
-      +'<span style="font-size:13px;font-weight:700;color:var(--text);">'+uploadedBB.name+'</span>'
-      +'<span style="font-size:11px;color:var(--amber);margin-left:2px;">Black Belt</span>'
-      +'<button onclick="uploadedBB=null;updatePills();" style="margin-left:auto;background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;">✕</button></div>';
     pillsEl.innerHTML=pills;
-    pillsEl.style.display=(uploadedDPV||uploadedBB)?'flex':'none';
-    var hasFile=!!(uploadedDPV||uploadedBB);
-    nextBtn.style.opacity=hasFile?'1':'0.4';
-    nextBtn.style.pointerEvents=hasFile?'auto':'none';
+    pillsEl.style.display=uploadedDPV?'flex':'none';
+    nextBtn.style.opacity=uploadedDPV?'1':'0.4';
+    nextBtn.style.pointerEvents=uploadedDPV?'auto':'none';
   }
   window.updatePills=updatePills;
 
-  function routeUploadFile(file){
-    if(isBlackBeltFile(file.name)){uploadedBB=file;}
-    else{uploadedDPV=file;}
-    updatePills();
+  if(fileInput){
+    fileInput.addEventListener('change',function(){
+      if(fileInput.files[0]){uploadedDPV=fileInput.files[0];updatePills();}
+    });
   }
 
-  // DPV browse button
-  var browseBtn=document.getElementById('browse-btn');
-  var fileInput=document.getElementById('file-input');
-  var browseBBBtn=document.getElementById('browse-bb-btn');
-  var fileBBInput=document.getElementById('file-bb-input');
-  if(browseBtn&&fileInput){
-    browseBtn.addEventListener('click',function(){fileInput.click();});
-    fileInput.addEventListener('change',function(){if(fileInput.files[0])routeUploadFile(fileInput.files[0]);});
-  }
-  if(browseBBBtn&&fileBBInput){
-    browseBBBtn.addEventListener('click',function(){fileBBInput.click();});
-    fileBBInput.addEventListener('change',function(){if(fileBBInput.files[0]){uploadedBB=fileBBInput.files[0];updatePills();}});
-  }
-
-  // Drop zone on upload screen
+  // Drop zone on upload screen (DPV only)
   var dz=document.getElementById('drop-zone');
   if(dz){
-    dz.addEventListener('click',function(){fileInput.click();});
     dz.addEventListener('dragover',function(e){e.preventDefault();dz.classList.add('drag-over');});
     dz.addEventListener('dragleave',function(){dz.classList.remove('drag-over');});
     dz.addEventListener('drop',function(e){
       e.preventDefault();dz.classList.remove('drag-over');
-      var files=e.dataTransfer.files;
-      for(var i=0;i<files.length;i++) routeUploadFile(files[i]);
+      if(e.dataTransfer.files[0]){uploadedDPV=e.dataTransfer.files[0];updatePills();}
     });
   }
 
-  // Next button: process queued files then show app
+  // Next button: process DPV then show app
   window.proceedToApp=function(){
-    var pending=[];
-    if(uploadedDPV) pending.push({file:uploadedDPV,type:'dpv'});
-    if(uploadedBB) pending.push({file:uploadedBB,type:'bb'});
-    if(!pending.length){skipToCertPlanner();return;}
-    var processed=0;
-    var hasDPV=!!uploadedDPV;
-    function done(){
-      processed++;
-      if(processed===pending.length){
-        if(!hasDPV){
-          // BB only — manually enter app
-          partnerName='No DPV loaded';beId='—';allRows=[];months=[];selectedMonth='';
-          document.getElementById('upload-screen').classList.add('hidden');
-          document.getElementById('app-shell').classList.remove('hidden');
-          document.getElementById('h-partner').textContent='Cert Planner';
-          document.getElementById('h-meta').textContent='No DPV loaded — BB file loaded';
-          document.getElementById('score-ribbon').classList.add('hidden');
-          switchTab('certs');
-        }
-        // DPV path: initUI already showed the app via parseData
-      }
-    }
-    pending.forEach(function(p){
-      var reader=new FileReader();
-      reader.onload=function(e){
-        try{
-          var wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true});
-          var rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:null});
-          if(p.type==='dpv'){processData(rows);}
-          else if(p.type==='bb'){cpHandleBBData(rows,p.file.name);}
-        }catch(err){alert('Error reading '+p.file.name+': '+err.message);}
-        done();
-      };
-      reader.readAsArrayBuffer(p.file);
-    });
+    if(!uploadedDPV){skipToCertPlanner();return;}
+    var reader=new FileReader();
+    reader.onload=function(e){
+      try{
+        var wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true});
+        var rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:null});
+        processData(rows);
+      }catch(err){alert('Error reading '+uploadedDPV.name+': '+err.message);}
+    };
+    reader.readAsArrayBuffer(uploadedDPV);
   };
 })();
 
@@ -2415,98 +2357,137 @@ function cpHandleBBFile(file){
     try{
       var wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true});
       var rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:null});
-      cpHandleBBData(rows,file.name);
-      // Update BB drop zone to loaded state
-      var bbdz=document.getElementById('cp-bb-drop');
-      if(bbdz){
-        var bbfi=bbdz.querySelector('input[type=file]');
-        bbdz.innerHTML='<input type="file" id="cp-bb-file-input" accept=".xlsx,.xls" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;" />'
-          +'<div class="cp-drop-icon" style="font-size:1.4rem;">✅</div>'
-          +'<div class="cp-drop-title" style="color:var(--amber);font-size:13px;">'+file.name+'</div>'
-          +'<div class="cp-drop-sub" style="font-size:11px;">Black Belt loaded · drop or click to replace</div>';
-        var newFi=bbdz.querySelector('input[type=file]');
-        if(newFi)newFi.addEventListener('change',function(){if(newFi.files[0])cpHandleBBFile(newFi.files[0]);});
-        bbdz.ondragover=function(e){e.preventDefault();bbdz.style.borderColor='var(--amber)';};
-        bbdz.ondragleave=function(){bbdz.style.borderColor='rgba(251,191,36,.45)';};
-        bbdz.ondrop=function(e){e.preventDefault();bbdz.style.borderColor='rgba(251,191,36,.45)';if(e.dataTransfer.files[0])cpHandleBBFile(e.dataTransfer.files[0]);};
+      var ok=cpHandleBBData(rows);
+      if(ok){
+        // Update the top BB drop zone to show loaded state
+        var bbdz=document.getElementById('cp-bb-drop');
+        if(bbdz){
+          bbdz.innerHTML='<input type="file" id="cp-bb-file-input" accept=".xlsx,.xls" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;" />'
+            +'<div class="cp-drop-icon" style="font-size:1.4rem;">✅</div>'
+            +'<div class="cp-drop-title" style="color:var(--amber);font-size:13px;">'+file.name+'</div>'
+            +'<div class="cp-drop-sub" style="font-size:11px;">Black Belt loaded · drop or click to replace</div>';
+          var newFi=bbdz.querySelector('input[type=file]');
+          if(newFi){
+            newFi.addEventListener('change',function(){if(newFi.files[0])cpHandleBBFile(newFi.files[0]);});
+            newFi.addEventListener('dragover',function(e){e.preventDefault();});
+          }
+          bbdz.addEventListener('dragover',function(e){e.preventDefault();bbdz.style.borderColor='var(--amber)';});
+          bbdz.addEventListener('dragleave',function(){bbdz.style.borderColor='rgba(251,191,36,.45)';});
+          bbdz.addEventListener('drop',function(e){e.preventDefault();if(e.dataTransfer.files[0])cpHandleBBFile(e.dataTransfer.files[0]);});
+        }
       }
-    }catch(err){alert('Error reading Black Belt file "'+file.name+'": '+err.message);}
+    }catch(err){alert('Error reading "'+file.name+'": '+err.message);}
   };
   reader.readAsArrayBuffer(file);
 }
 
-function cpHandleBBData(rows,fileName){
-  if(!rows||!rows.length){alert('Black Belt file appears empty.');return;}
-  var sample=rows[0];
-  var keys=Object.keys(sample);
-  console.log('[BB] Columns ('+keys.length+'):', keys);
+function cpHandleBBData(rows){
+  if(!rows||!rows.length){alert('Black Belt file appears empty.');return false;}
+  var keys=Object.keys(rows[0]);
 
+  // Map columns — supports the Cisco Black Belt Academy "Participant Details" export format
+  // Columns: Username, CCO User ID, Email, Learning Plan Name, Stage Level,
+  //          Completed Percent, Learning Track, Architecture, Status, Certificate Date, Registration Date
   function findKey(candidates){
     for(var i=0;i<candidates.length;i++){
       var c=candidates[i].toLowerCase();
-      var found=keys.find(function(k){return k.toLowerCase().includes(c);});
-      if(found)return found;
-    }return null;
+      var k=keys.find(function(k){return k.toLowerCase()===c;});
+      if(k)return k;
+    }
+    // Fallback: partial match
+    for(var i=0;i<candidates.length;i++){
+      var c=candidates[i].toLowerCase();
+      var k=keys.find(function(k){return k.toLowerCase().includes(c);});
+      if(k)return k;
+    }
+    return null;
   }
-  var kFirst=findKey(['first name','first_name','firstname','fname','given name','given_name']);
-  var kLast=findKey(['last name','last_name','lastname','lname','surname','family name']);
-  var kFull=(!kFirst&&!kLast)?findKey(['full name','fullname','employee name','learner name','learner','user name','username','display name','name']):null;
-  var kEmail=findKey(['email','e-mail','mail','user email','learner email']);
-  var kTitle=findKey(['lm_title','program title','training title','training name','course title','course name','course','title','learning title','activity name','activity title','module']);
-  var kPort=findKey(['pxp portfolio','portfolio','arch','architecture','technology']);
-  var kTrack=findKey(['track','career track','role track']);
-  var kStage=findKey(['stage','belt level','bb stage','level']);
-  var kMult=findKey(['multiplier','pvi mult','pvi multiplier','pts','points','credit','bb points']);
-  var kStatus=findKey(['status','completion status','completion']);
 
-  console.log('[BB] Mapped — first:'+kFirst+' last:'+kLast+' full:'+kFull+' title:'+kTitle+' stage:'+kStage+' port:'+kPort);
+  var kName   = findKey(['username','full name','fullname','name','employee name','learner name','learner','display name']);
+  var kFirst  = findKey(['first name','first_name','firstname','fname']);
+  var kLast   = findKey(['last name','last_name','lastname','lname']);
+  var kEmail  = findKey(['email','e-mail','mail']);
+  var kTitle  = findKey(['learning plan name','lm_title','program title','training title','training name','course title','course name','course','title','activity name']);
+  var kStage  = findKey(['stage level','stage','belt level','bb stage','level']);
+  var kTrack  = findKey(['learning track','track','career track','role track']);
+  var kArch   = findKey(['architecture','arch','pxp portfolio','portfolio','technology']);
+  var kStatus = findKey(['status','completion status','completion']);
+  var kPct    = findKey(['completed percent','completion percent','percent','progress']);
+  var kMult   = findKey(['multiplier','pvi mult','pvi multiplier','pts','points','credit']);
 
   bbEmployees={};
-  var skipped=0;
+  var total=0,skipped=0;
   rows.forEach(function(row){
-    var first=kFirst?String(row[kFirst]||'').trim():'';
-    var last=kLast?String(row[kLast]||'').trim():'';
-    var full=kFull?String(row[kFull]||'').trim():'';
-    var email=kEmail?String(row[kEmail]||'').trim():'';
+    // Resolve name
     var name='';
-    if(first||last)name=(first+' '+last).trim();
-    else if(full&&full!=='null')name=full;
-    else name=email;
-    if(!name||name==='null'||name==='undefined'||name===' '){skipped++;return;}
-    if(kStatus){
-      var st=String(row[kStatus]||'').toLowerCase().trim();
-      if(st&&st!=='null'&&st!=='completed'&&st!=='complete'&&st!=='passed'&&st!=='pass'&&st!=='1'&&st!=='true'&&st!=='yes'){return;}
+    if(kName){name=String(row[kName]||'').trim();}
+    if(!name&&(kFirst||kLast)){
+      var f=kFirst?String(row[kFirst]||'').trim():'';
+      var l=kLast?String(row[kLast]||'').trim():'';
+      name=(f+' '+l).trim();
     }
+    var email=kEmail?String(row[kEmail]||'').trim():'';
+    if(!name||name==='null'||name==='undefined'){name=email||'';}
+    if(!name){skipped++;return;}
+
+    // Filter: only include Certified rows (Status=Certified OR Completed Percent=1)
+    var status=kStatus?String(row[kStatus]||'').trim():'';
+    var pct=kPct?parseFloat(row[kPct]):NaN;
+    var isCertified=(status.toLowerCase()==='certified'||status.toLowerCase()==='complete'||status.toLowerCase()==='passed'||(isNaN(pct)?false:pct>=1));
+    if(!isCertified){return;} // skip in-progress / registered
+
+    total++;
     if(!bbEmployees[name])bbEmployees[name]={name:name,email:email,completions:[]};
-    var title=kTitle?String(row[kTitle]||'').trim():'';
+
+    var title  = kTitle?String(row[kTitle]||'').trim():'';
     if(title==='null')title='';
-    var port=kPort?String(row[kPort]||'').trim():'';
-    if(port==='null')port='';
-    var track=kTrack?String(row[kTrack]||'').trim():'';
-    if(track==='null')track='';
-    var stage=kStage?String(row[kStage]||'').trim():'';
+    var stage  = kStage?String(row[kStage]||'').trim():'';
     if(stage==='null')stage='';
-    if(stage&&!stage.toLowerCase().startsWith('stage')){var sn=parseInt(stage);if(!isNaN(sn))stage='Stage '+sn;}
+    // Normalize stage: "1" → "Stage 1"
+    if(stage&&!/^stage\s/i.test(stage)){var sn=parseInt(stage);if(!isNaN(sn))stage='Stage '+sn;}
+    var track  = kTrack?String(row[kTrack]||'').trim():'';
+    if(track==='null')track='';
+    var arch   = kArch?String(row[kArch]||'').trim():'';
+    if(arch==='null')arch='';
+
+    // Multiplier: explicit column > lookup by title in CP_BB catalog > derive from stage
     var mult=1.0;
     if(kMult){mult=parseFloat(row[kMult])||1.0;}
-    else if(title){var m=CP_BB.find(function(b){return b['LM_TITLE']===title;});if(m)mult=parseFloat(m['PVI Mulitiplier'])||1.0;}
-    if(mult===1.0&&stage){if(stage==='Stage 3')mult=2.0;else if(stage==='Stage 2')mult=1.5;}
-    bbEmployees[name].completions.push({title:title||'(untitled)',portfolio:port,track:track,stage:stage,multiplier:mult});
+    else if(title&&typeof CP_BB!=='undefined'){
+      var ref=CP_BB.find(function(b){return b['LM_TITLE']===title;});
+      if(ref)mult=parseFloat(ref['PVI Mulitiplier'])||1.0;
+    }
+    if(mult===1.0&&stage){
+      if(stage==='Stage 3')mult=2.0;
+      else if(stage==='Stage 2')mult=1.5;
+    }
+
+    bbEmployees[name].completions.push({
+      title:title||'(untitled)',
+      portfolio:arch,
+      track:track,
+      stage:stage,
+      multiplier:mult
+    });
   });
 
   var empCount=Object.keys(bbEmployees).length;
-  console.log('[BB] Result: '+empCount+' employees. Sample:', Object.keys(bbEmployees).slice(0,5));
   if(empCount===0){
     var colList=keys.slice(0,12).join(', ')+(keys.length>12?' …':'');
-    alert('Black Belt file loaded but no records found.\n\nColumns detected:\n'+colList+'\n\nExpected: First Name/Last Name (or Name), Training/Course Title, Stage/Level.\n\nCheck browser console (F12) for details.');
-    return;
+    alert('Black Belt file loaded but no Certified records found.\n\nColumns detected:\n'+colList+'\n\nOnly rows where Status = "Certified" (or Completed Percent = 100%) are imported.\nCheck that the file contains completed certifications.');
+    return false;
   }
+
   var noFile=document.getElementById('cp-bb-no-file');
   var ctrl=document.getElementById('cp-bb-controls');
   if(noFile)noFile.style.display='none';
   if(ctrl)ctrl.style.display='block';
+  // Re-wire inline input in case it still exists
+  var inlineInput=document.getElementById('cp-bb-inline-input');
+  if(inlineInput)inlineInput.addEventListener('change',function(){if(inlineInput.files[0])cpHandleBBFile(inlineInput.files[0]);});
   cpRenderBBRoster();
   cpSetView('bb');
+  return true;
 }
 
 function cpSetView(view){
