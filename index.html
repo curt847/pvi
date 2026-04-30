@@ -385,6 +385,14 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
       <div class="drop-zone" id="drop-zone"><div class="dz-icon">📁</div><div class="dz-label">Drop Partner_Assessment_DPV.xlsx here</div><div class="dz-sub">or click to browse  ·  .xlsx / .xls</div></div>
       <button class="btn btn-blue" id="browse-btn" style="width:100%;padding:12px;font-size:15px">Browse File</button>
       <input type="file" id="file-input" accept=".xlsx,.xls" class="hidden">
+      <div style="display:flex;align-items:center;gap:12px;margin-top:14px;">
+        <div style="flex:1;height:1px;background:var(--border);"></div>
+        <span style="font-size:12px;color:var(--muted);">or</span>
+        <div style="flex:1;height:1px;background:var(--border);"></div>
+      </div>
+      <button onclick="skipToCertPlanner()" style="width:100%;margin-top:14px;padding:10px;font-size:13px;font-weight:700;background:transparent;border:1px solid var(--border2);border-radius:8px;color:var(--muted);cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='var(--blue)';this.style.color='var(--blue)'" onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--muted)'">
+        Skip to Cert Planner only →
+      </button>
 
     </div>
   </div>
@@ -736,6 +744,26 @@ function cnum(s){return parseFloat(String(s||'').replace(/[$,\s]/g,''))||0;}
 function fmtC(n){if(n>=1000000)return'$'+(n/1000000).toFixed(2)+'M';if(n>=1000)return'$'+(n/1000).toFixed(1)+'K';return'$'+n.toFixed(0);}
 
 // ── INIT ─────────────────────────────────────────────────────────────────────
+function skipToCertPlanner(){
+  // Enter app without a DPV file — Cert Planner only mode
+  partnerName='No DPV loaded';
+  beId='—';
+  allRows=[];
+  months=[];
+  selectedMonth='';
+  document.getElementById('upload-screen').classList.add('hidden');
+  document.getElementById('app-shell').classList.remove('hidden');
+  document.getElementById('h-partner').textContent='Cert Planner';
+  document.getElementById('h-meta').textContent='No DPV loaded — upload a personnel report to view cert data';
+  // Hide DPV-dependent UI elements
+  document.getElementById('month-select').parentElement.style.display='none';
+  document.getElementById('sz-select').parentElement.style.display='none';
+  document.getElementById('summary-btn').style.display='none';
+  document.getElementById('wi-banner').style.display='none';
+  // Go directly to cert planner tab
+  switchTab('certs');
+  cpLoadKey();
+}
 function initUI(){
   document.getElementById('upload-screen').classList.add('hidden');
   document.getElementById('app-shell').classList.remove('hidden');
