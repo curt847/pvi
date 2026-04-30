@@ -769,6 +769,11 @@ function initUI(){
   document.getElementById('app-shell').classList.remove('hidden');
   document.getElementById('h-partner').textContent=partnerName;
   document.getElementById('h-meta').textContent='BE ID: '+beId+'  ·  '+allRows.length+' rows  ·  '+months.length+' months';
+  // Restore any elements hidden by skipToCertPlanner
+  document.getElementById('month-select').parentElement.style.display='';
+  document.getElementById('sz-select').parentElement.style.display='';
+  document.getElementById('summary-btn').style.display='';
+  // wi-banner stays hidden until a what-if change is made (controlled elsewhere)
   var sel=document.getElementById('month-select');
   sel.innerHTML=months.map(function(m){return'<option value="'+m+'">'+m+'</option>';}).join('');
   sel.value=selectedMonth;
