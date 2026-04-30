@@ -2128,8 +2128,7 @@ function cpPrintRoster(){
   pw.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Certification Roster'+(portFilter?' — '+portFilter:'')+' </title><style>'+styl+'</style></head><body>'
     +'<h1>Certification Roster '+archBadge+'</h1>'
     +'<div class="meta"><strong>'+(partnerName||'')+'</strong> &middot; Generated: '+today+' &middot; Month: '+(selectedMonth||'')+' &middot; Size: '+shirtSize+(portFilter?' &middot; Filtered: <strong>'+portFilter+'</strong>':'')+' </div>'
-    +summaryBoxes
-    +(portFilter?pdfArchStats:'')
+    +(portFilter?pdfArchStats:summaryBoxes)
     +'<table><thead><tr><th>Employee</th><th>Active PVI Certs</th><th>PVI Pts</th><th>Other Certs</th></tr></thead><tbody>'+tableRows+'</tbody></table>'
     +'<br><button onclick="window.print()" style="background:#049fd9;color:#fff;border:none;padding:9px 20px;font-size:13px;font-weight:700;border-radius:6px;cursor:pointer;margin-top:16px;">Print / Save as PDF</button>'
     +'</body></html>');
