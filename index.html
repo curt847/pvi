@@ -524,9 +524,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
         <div id="cp-stage-pills" style="display:flex;gap:8px;flex-wrap:wrap;flex:1;align-items:center;"></div>
         <button onclick="cpProcessStaged()" id="cp-stage-btn" style="padding:8px 20px;border-radius:8px;border:none;cursor:pointer;background:var(--blue);color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:800;white-space:nowrap;">Process →</button>
       </div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:14px;">
-        Skip file upload? <span onclick="cpShowManualModal()" style="color:#7c3aed;cursor:pointer;font-weight:700;">Manual Plan</span> · <span onclick="cpShowFreeformModal()" style="color:#0284c7;cursor:pointer;font-weight:700;">Freeform Prompt</span>
-      </div>
       <div class="cp-gen-row" id="cp-gen-row" style="display:none">
         <button class="cp-gen-btn" id="cp-gen-btn" onclick="cpGenerate()" style="background:linear-gradient(135deg,#d97706 0%,#b45309 100%);"><span>&#10022;</span> What-If Cert Plan</button>
         <button class="cp-gen-btn" id="cp-manual-btn" onclick="cpShowManualModal()" style="background:linear-gradient(135deg,#6d28d9 0%,#7c3aed 100%);"><span>&#9998;</span> Manual Plan Criteria</button>
@@ -561,8 +558,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
               <div style="display:flex;align-items:center;gap:8px;"><label style="font-size:13px;flex:1;">Services</label><input type="text" inputmode="decimal" id="mp-bb-svc" placeholder="0" style="width:70px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;text-align:right;"></div>
             </div>
             <!-- Focus users -->
-            <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:8px;">👥 Focus Users <span style="font-weight:400;font-style:italic;text-transform:none;letter-spacing:0;">(leave blank for all employees)</span></div>
-            <div id="mp-user-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:20px;min-height:36px;padding:8px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;"></div>
+            <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:8px;">👥 Focus Users <span style="font-weight:400;font-style:italic;text-transform:none;letter-spacing:0;color:#ef4444;">(required — add at least one employee)</span></div>
+            <div id="mp-user-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;min-height:40px;padding:8px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;"></div>
             <select id="mp-user-add" onchange="cpManualAddUser(this)" style="width:100%;padding:7px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;margin-bottom:18px;">
               <option value="">+ Add employee to focus list…</option>
             </select>
@@ -1936,33 +1933,32 @@ function cpFormatPlan(raw){
       if(!p[0]||/^[-\s]+$/.test(p[0]))return;
       if(/^(training\s*name|cert\s*name|name|#)$/i.test(p[0]))return;
       if(!cur)cur={title:'',items:[],total:null,candidates:[],currentLevel:null};
-      // Expected format: "Title | X pts [| Stage N] [| Assignee]"
-      // Find pts column, then grab name before it, stage/assignee after it
+      // Format: | Name | X pts | Stage N or Level | Duration | Architectures | Assignee |
       var ptsIdx=-1;
       for(var ci=0;ci<p.length;ci++){if(/^[\d.]+\s*pts?$/i.test(p[ci])){ptsIdx=ci;break;}}
-      var name,pts,dur=null,crossArch=null,assignee=null,stage=null;
+      var name,pts,dur=null,crossArch=null,assignee=null,stage=null,archCovered=null;
       if(ptsIdx>=0){
         pts=p[ptsIdx];
         var start=/^\d+$/.test(p[0])?1:0;
         name=p.slice(start,ptsIdx).join(' ').trim();
-        // Parse columns after pts
         for(var ci2=ptsIdx+1;ci2<p.length;ci2++){
           var col=p[ci2].trim();
           if(!col)continue;
-          if(/^\d+min$/i.test(col))dur=col;
-          else if(/^stage\s*[123]/i.test(col))stage=col;
+          if(/^stage\s*[123]/i.test(col))stage=col;
+          else if(/^\d+\s*min$/i.test(col)||col==='—'&&!dur)dur=col==='—'?null:col;
+          else if(/^\d+min$/i.test(col))dur=col;
+          else if(col.includes('+')&&!crossArch){archCovered=col;crossArch=col;}
           else if(/cross.arch/i.test(col)||col.startsWith('['))crossArch=col.replace(/^\[|\]$/g,'');
-          else if(col&&!assignee)assignee=col; // last unrecognized col = assignee
+          else if(col&&col!=='—'&&!assignee)assignee=col;
         }
       } else {
-        // Last col is pts if no "pts" suffix
         pts=p[p.length-1];
         var start2=/^\d+$/.test(p[0])?1:0;
         name=p.slice(start2,p.length-1).join(' ').trim();
       }
       if(!name||/^[-\s]+$/.test(name))return;
       if(/^(training|cert|name|level|item|bb training|assignee)$/i.test(name))return;
-      cur.items.push({name:name,pts:pts,level:cur?cur.currentLevel:null,dur:dur,crossArch:crossArch,stage:stage,assignee:assignee});return;
+      cur.items.push({name:name,pts:pts,level:cur?cur.currentLevel:null,dur:dur,crossArch:crossArch,stage:stage,assignee:assignee,archCovered:archCovered});return;
     }
     // Skip pure separator/filler lines
     if(/^[-=#*\s]+$/.test(t)||/^\d+$/.test(t))return;
@@ -1998,18 +1994,25 @@ function cpFormatPlan(raw){
         lastLevel=item.level;
       }
       var metaBadges='';
-      // Cross-arch badge
-      var _bbPorts=[];
-      CP_BB.forEach(function(b){if(b['LM_TITLE']===item.name&&_bbPorts.indexOf(b['PXP Portfolio'])<0)_bbPorts.push(b['PXP Portfolio']);});
-      if(_bbPorts.length>1){
-        metaBadges+='<span style="font-size:10px;font-weight:700;background:rgba(124,58,237,.15);border:1px solid rgba(124,58,237,.3);color:#a78bfa;padding:2px 8px;border-radius:10px;margin-left:6px;white-space:nowrap;">⟷ '+_bbPorts.join(' + ')+'</span>';
+      // Cross-arch / arch covered badge
+      var archLabel=item.archCovered||null;
+      if(!archLabel){
+        var _bbPorts=[];
+        CP_BB.forEach(function(b){if(b['LM_TITLE']===item.name&&_bbPorts.indexOf(b['PXP Portfolio'])<0)_bbPorts.push(b['PXP Portfolio']);});
+        if(_bbPorts.length>1)archLabel=_bbPorts.join(' + ');
+      }
+      if(archLabel){
+        metaBadges+='<span style="font-size:10px;font-weight:700;background:rgba(124,58,237,.15);border:1px solid rgba(124,58,237,.3);color:#a78bfa;padding:2px 8px;border-radius:10px;margin-left:6px;white-space:nowrap;">⟷ '+archLabel+'</span>';
       }
       // Stage badge
       if(item.stage){
         var stageCol=item.stage.includes('3')?'#c4b5fd':item.stage.includes('2')?'#a78bfa':'#7c3aed';
         metaBadges+='<span style="font-size:10px;font-weight:700;background:rgba(124,58,237,.12);border:1px solid rgba(124,58,237,.25);color:'+stageCol+';padding:2px 8px;border-radius:10px;margin-left:6px;white-space:nowrap;">'+item.stage+'</span>';
       }
-      if(item.dur)metaBadges+='<span style="font-size:10px;font-weight:700;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.25);color:#22c55e;padding:2px 8px;border-radius:10px;margin-left:6px;white-space:nowrap;">⏱ '+item.dur+'</span>';
+      // Duration badge
+      if(item.dur){
+        metaBadges+='<span style="font-size:10px;font-weight:700;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.25);color:#22c55e;padding:2px 8px;border-radius:10px;margin-left:6px;white-space:nowrap;">⏱ '+item.dur+'</span>';
+      }
       // Assignee pill
       var assigneeHtml=item.assignee
         ?'<div style="padding:8px 14px;background:rgba(4,159,217,.1);border-left:1px solid var(--border);font-size:12px;font-weight:700;color:#049fd9;white-space:nowrap;display:flex;align-items:center;gap:5px;"><span style="opacity:.6;">→</span>'+item.assignee+'</div>'
@@ -2097,22 +2100,22 @@ async function cpGenerate(){
   var outputTemplate='';
   bbGapPortfolios.forEach(function(p){
     var g=gaps.find(function(x){return x.portfolio===p&&x.type==='blackbelt';});
-    outputTemplate+='**RECOMMENDED '+p.toUpperCase()+' BLACK BELT TRAININGS**\n'
-      +'ELIGIBLE CANDIDATES: name1, name2 ... (all employees with relevant '+p+' cert background)\n'
-      +'Training Title Here | X pts | Ymin | [CROSS-ARCH: Port1 + Port2]\n'
-      +'Training Title Here | X pts | Zmin\n'
-      +'... (STOP the moment running total >= '+g.gapPts.toFixed(1)+' pts)\n'
+    outputTemplate+='** '+p+' Black Belt Plan\n'
+      +'ELIGIBLE CANDIDATES: name1, name2\n'
+      +'| Training Title | X pts | Stage N | Ymin | '+p+' | AssigneeName |\n'
+      +'| Cross-Arch Training | X pts | Stage N | Zmin | '+p+' + OtherPort | AssigneeName |\n'
+      +'... (STOP when running total >= '+g.gapPts.toFixed(1)+' pts)\n'
       +'TOTAL BB PTS NEEDED: '+g.gapPts.toFixed(1)+'\n\n';
   });
   certGapPortfolios.forEach(function(p){
     var g=gaps.find(function(x){return x.portfolio===p&&x.type==='careercert';});
-    outputTemplate+='**RECOMMENDED '+p.toUpperCase()+' PROFESSIONAL CERTIFICATIONS**\n'
-      +'ELIGIBLE CANDIDATES: name1, name2 ... (all employees with relevant '+p+' cert background)\n'
-      +'LEVEL: Professional\n'
-      +'Cert Name (Code) | 3 pts\n'
+    outputTemplate+='** '+p+' Certification Plan\n'
+      +'ELIGIBLE CANDIDATES: name1, name2\n'
       +'LEVEL: Associate\n'
-      +'Cert Name (Code) | 1 pts\n'
-      +'... (STOP the moment running total >= '+g.gapPts.toFixed(1)+' pts)\n'
+      +'| Cert Name (Code) | 1 pts | Associate | — | '+p+' | AssigneeName |\n'
+      +'LEVEL: Professional\n'
+      +'| Cert Name (Code) | 3 pts | Professional | — | '+p+' | AssigneeName |\n'
+      +'... (STOP when running total >= '+g.gapPts.toFixed(1)+' pts)\n'
       +'TOTAL CERT PTS NEEDED: '+g.gapPts.toFixed(1)+'\n\n';
   });
 
@@ -2121,23 +2124,20 @@ async function cpGenerate(){
     +'BB REFERENCE FORMAT: Title | pts | duration | [portfolio(s)]\n'
     +'Items marked [CROSS-ARCH: X + Y] count toward BOTH X and Y portfolios simultaneously.\n\n'
     +gapInstructions
-    +(bbRef?'\nAVAILABLE BLACK BELT TRAININGS (only for gap portfolios):\n'+bbRef:'')
+    +(bbRef?'\nAVAILABLE BLACK BELT TRAININGS (sorted: cross-arch first, then shortest duration, then lowest stage):\n'+bbRef:'')
     +(certRef?'\n\nAVAILABLE PVI CERTS (only for gap portfolios):\n'+certRef:'')
     +'\n\nEMPLOYEE STATUS:\n'+JSON.stringify(empSummary,null,1)
     +'\n\nRULES:\n'
-    +'- Output ONLY the section(s) below. No other text before, between, or after.\n'
-    +'- ITEM FORMAT: Every training/cert line MUST be exactly: Title | X pts — exactly two pipe-separated values. No extra columns, no numbering, no markdown bullets.\n'
-    +'- Use the EXACT title from the reference list. The second column must be the numeric point value followed by pts (e.g. 1 pts, 1.5 pts, 2 pts, 3 pts).\n'
-    +'- For each gap, add items one at a time tracking a running total. KEEP ADDING until the running total >= the required gap pts. Never stop short.\n'
-    +'- CROSS-ARCH PRIORITY: When multiple portfolios have gaps, STRONGLY prefer trainings marked [CROSS-ARCH] that cover multiple gap portfolios simultaneously. List them under each portfolio they satisfy.\n'
-    +'- DURATION PRIORITY: Among items that satisfy the portfolio requirement, prefer shorter duration (lower min value). Only pick longer ones if no shorter option exists.\n'
-    +'- Choose items that efficiently close the gap — prefer higher-value items (2 pts, 1.5 pts) when the gap is large. A mix is fine.\n'
-    +'- Each portfolio section must independently meet its required pts total. Cross-arch items count toward each portfolio they cover.\n'
-    +'- Do NOT default to Meraki unless it is genuinely the best fit.\n'
-    +'- Employee data shows CAREER CERTS only (not BB trainings). Use certs to judge who is best-fit for each portfolio.\n'
-    +'- List all employees who are a good fit as candidates. No cap on candidates.\n'
-    +'- For Professional Certs, group under LEVEL: Professional / LEVEL: Associate / LEVEL: Expert sub-headers as needed.\n\n'
-    +'OUTPUT FORMAT (use exactly, one section per gap):\n\n'
+    +'- CROSS-ARCH FIRST: Strongly prefer trainings marked [CROSS-ARCH] that cover multiple gap portfolios. List under each portfolio they satisfy.\n'
+    +'- SHORTEST/LOWEST STAGE FIRST: Among items meeting the requirement, prefer shorter duration and lower stage (Stage 1 preferred, then Stage 2, then Stage 3), unless cross-arch benefit justifies a higher stage.\n'
+    +'- HIT TARGET EXACTLY: Add items one at a time tracking running total. STOP the moment running total >= required pts. Do not exceed.\n'
+    +'- ASSIGN PER ROW: Every item row must end with the name of the ONE employee assigned to it.\n'
+    +'- INVERSE PROPORTIONAL ASSIGNMENT: Employees with fewer current PVI points in that portfolio get more assignments. Someone with 0 pts gets twice the items of someone with 10 pts.\n'
+    +'- Each portfolio section must independently meet its required pts. Cross-arch items count toward each portfolio they cover.\n'
+    +'- Employee data shows CAREER CERTS only (not BB trainings). Use cert portfolio pts to judge assignment order.\n'
+    +'- For Professional Certs, group under LEVEL: Professional / LEVEL: Associate / LEVEL: Expert sub-headers.\n'
+    +'- ITEM FORMAT: Title | X pts | Stage N or Level | Duration | Architectures covered | Assignee Name\n\n'
+    +'OUTPUT FORMAT (one section per gap):\n\n'
     +outputTemplate.trim();
 
   if(!dpvLoaded||!hasGaps){
@@ -2779,7 +2779,6 @@ function cpPrintBBRoster(){
 }
 
 function cpShowFreeformModal(){
-  document.getElementById('cp-gen-row').style.display='flex';
   var modal=document.getElementById('cp-freeform-modal');
   if(!modal)return;
   var ta=document.getElementById('cp-freeform-text');
@@ -2860,10 +2859,9 @@ function cpRunFreeformPlan(){
 }
 
 // ── MANUAL CERT / BB PLAN ────────────────────────────────────────────────────
-var _mpFocusUsers=[];
+var _mpFocusUsers=[]; // [{name, role}] where role = 'Sales' | 'Technical'
 
 function cpShowManualModal(){
-  document.getElementById('cp-gen-row').style.display='flex';
   var modal=document.getElementById('cp-manual-modal');
   if(!modal)return;
   var sel=document.getElementById('mp-user-add');
@@ -2880,16 +2878,35 @@ function cpShowManualModal(){
 
 function cpManualAddUser(sel){
   var n=sel.value;if(!n)return;
-  if(_mpFocusUsers.indexOf(n)<0)_mpFocusUsers.push(n);
+  if(!_mpFocusUsers.find(function(u){return u.name===n;}))
+    _mpFocusUsers.push({name:n,role:'Sales'});
   sel.value='';cpManualRenderUsers();
+}
+
+function cpManualSetRole(idx,role){
+  if(_mpFocusUsers[idx])_mpFocusUsers[idx].role=role;
+  cpManualRenderUsers();
+}
+
+function cpManualRemoveUser(idx){
+  _mpFocusUsers.splice(idx,1);
+  cpManualRenderUsers();
 }
 
 function cpManualRenderUsers(){
   var c=document.getElementById('mp-user-list');if(!c)return;
-  if(!_mpFocusUsers.length){c.innerHTML='<span style="font-size:12px;color:var(--muted);padding:4px;">All employees</span>';return;}
-  c.innerHTML=_mpFocusUsers.map(function(n,i){
-    return'<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;background:rgba(4,159,217,.12);border:1px solid rgba(4,159,217,.3);border-radius:20px;font-size:12px;font-weight:700;color:#049fd9;">'
-      +n+'<button onclick="_mpFocusUsers.splice('+i+',1);cpManualRenderUsers();" style="background:none;border:none;color:#049fd9;cursor:pointer;font-size:13px;line-height:1;padding:0;">×</button></span>';
+  if(!_mpFocusUsers.length){
+    c.innerHTML='<span style="font-size:12px;color:#ef4444;padding:4px;">No employees selected — add at least one</span>';
+    return;
+  }
+  c.innerHTML=_mpFocusUsers.map(function(u,i){
+    var isSales=u.role==='Sales';
+    return '<div style="display:inline-flex;align-items:center;gap:0;background:var(--bg2);border:1px solid var(--border);border-radius:20px;overflow:hidden;font-size:12px;font-weight:700;margin:2px;">'
+      +'<span style="padding:4px 10px;color:#049fd9;">'+u.name+'</span>'
+      +'<span onclick="cpManualSetRole('+i+',\'Sales\')" style="padding:4px 8px;cursor:pointer;font-size:11px;font-weight:800;'+(isSales?'background:#0284c7;color:#fff;':'color:var(--muted);')+'border-left:1px solid var(--border);">Sales</span>'
+      +'<span onclick="cpManualSetRole('+i+',\'Technical\')" style="padding:4px 8px;cursor:pointer;font-size:11px;font-weight:800;'+(!isSales?'background:#7c3aed;color:#fff;':'color:var(--muted);')+'border-left:1px solid var(--border);">Tech</span>'
+      +'<span onclick="cpManualRemoveUser('+i+')" style="padding:4px 8px;cursor:pointer;color:var(--muted);font-size:13px;border-left:1px solid var(--border);">×</span>'
+      +'</div>';
   }).join('');
 }
 
@@ -2913,12 +2930,13 @@ function cpRunManualPlan(){
   var hasCert=Object.values(certTargets).some(function(v){return v>0;});
   var hasBB=Object.values(bbTargets).some(function(v){return v>0;});
   if(!hasCert&&!hasBB){alert('Please enter at least one point target.');return;}
+  if(!_mpFocusUsers.length){alert('Please add at least one employee to the focus list.');return;}
 
-  var allNames=Object.keys(cpEmployees).slice();
-  Object.keys(bbEmployees).forEach(function(n){if(allNames.indexOf(n)<0)allNames.push(n);});
-  var focusNames=_mpFocusUsers.length?_mpFocusUsers:allNames;
+  var focusUsers=_mpFocusUsers; // [{name, role}]
+  var focusNames=focusUsers.map(function(u){return u.name;});
 
-  var empSummary=focusNames.map(function(name){
+  var empSummary=focusUsers.map(function(u){
+    var name=u.name,role=u.role;
     var emp=cpEmployees[name];
     var bbEmp=bbEmployees[name];
     var certPts=emp?emp.certs.filter(function(c){return c.isPVI;}).reduce(function(s,c){return s+c.points;},0):0;
@@ -2934,7 +2952,7 @@ function cpRunManualPlan(){
     } else if(Object.keys(certsByPort).length){
       primaryArch=Object.keys(certsByPort).sort(function(a,b){return certsByPort[b]-certsByPort[a];})[0];
     }
-    return{name:name,certPts:certPts,certsByPort:certsByPort,bbPts:bbPts,bbByPort:bbByPort,primaryArch:primaryArch};
+    return{name:name,role:role,certPts:certPts,certsByPort:certsByPort,bbPts:bbPts,bbByPort:bbByPort,primaryArch:primaryArch};
   });
 
   // Build per-portfolio assignment rules in JS — don't leave this to AI guessing
@@ -2991,40 +3009,47 @@ function cpRunManualPlan(){
   Object.keys(bbTargets).forEach(function(p){if(bbTargets[p]>0)targLines.push(p+': +'+bbTargets[p]+' BB pts');});
 
   var empLines=empSummary.map(function(e){
-    var s=e.name+' | primary:'+e.primaryArch+' | certPts:'+e.certPts;
+    var s=e.name+' | role:'+e.role+' | primary:'+e.primaryArch+' | certPts:'+e.certPts;
     if(Object.keys(e.certsByPort).length)s+=' | certByArch:'+JSON.stringify(e.certsByPort);
     if(e.bbPts)s+=' | bbPts:'+e.bbPts+' | bbByArch:'+JSON.stringify(e.bbByPort);
     return s;
   }).join('\n');
 
   var prompt='You are a Cisco 360 Partner Program expert building a certification and Black Belt plan.\n\n'
-    +'TARGETS:\n'+targLines.join('\n')+'\n\n'
-    +'EMPLOYEES (name | primary arch | current pts):\n'+empLines+'\n\n'
-    +'PRE-COMPUTED ASSIGNMENT RULES (follow exactly — do not override):\n'+assignmentRules+'\n\n'
-    +'INVERSE PROPORTIONAL RULE: Within each portfolio\'s assignee list, the person listed first gets the most assignments. '
-    +'If person A has 20 pts and person B has 10 pts, B gets twice as many items as A. '
-    +'Distribute items so the ratio of assignments reflects this inverse relationship.\n\n'
+    +'TARGETS (add EXACTLY this many points — do not exceed):\n'+targLines.join('\n')+'\n\n'
+    +'EMPLOYEES (name | role | primary arch | current pts):\n'+empLines+'\n\n'
+    +'PRE-COMPUTED ASSIGNMENT RULES (follow exactly):\n'+assignmentRules+'\n\n'
+    +'INVERSE PROPORTIONAL RULE: Within each portfolio\'s assignee list, distribute items so someone with 20 pts gets half as many items as someone with 10 pts.\n\n'
+    +'BB ROLE RULE: Each employee is tagged Sales or Technical. For Black Belt trainings:\n'
+    +'- Assign Sales-track BB trainings (title contains "Sales", "Pre-Sales", "Marketeer", "Business") to employees tagged Sales\n'
+    +'- Assign Technical-track BB trainings (title contains "Deployment", "Support", "SE", "Engineer", "Technical") to employees tagged Technical\n'
+    +'- Cross-role trainings (neither clearly Sales nor Technical) can be assigned to either\n\n'
+    +'SELECTION PRIORITY:\n'
+    +'1. CROSS-ARCH trainings covering multiple target portfolios\n'
+    +'2. SHORTEST duration / lowest stage first (Stage 1 preferred unless cross-arch justifies higher)\n'
+    +'3. Stop exactly when target is reached — do NOT exceed\n\n'
     +'CERT REFERENCE (ExamCode | Name | Level | Points | Portfolio):\n'+(certRef||'None')+'\n\n'
     +'BB REFERENCE (Title | Points | Stage | Portfolio):\n'+(bbRef||'None')+'\n\n'
-    +'CRITICAL INSTRUCTIONS:\n'
-    +'- Assign every row to exactly ONE employee (last pipe column).\n'
-    +'- Follow the PRE-COMPUTED ASSIGNMENT RULES above — do not reassign people to portfolios they are not listed under.\n'
-    +'- No summary text, no paragraphs, no assignment breakdowns — ONLY pipe-delimited rows.\n'
-    +'- For BB: prefer Stage 3 (2pts) > Stage 2 (1.5pts) > Stage 1 (1pt).\n'
-    +'- For certs: prefer Expert (10pts) > Professional (3pts) > Associate (1pt).\n'
+    +'CRITICAL OUTPUT RULES:\n'
+    +'- Every row: | Training/Cert Name | X pts | Stage N or Level | Duration or — | Architectures covered | Assignee |\n'
+    +'- Show ALL architectures the training covers (e.g. "Networking + Security" for cross-arch)\n'
+    +'- Include duration where known — if unknown write —\n'
+    +'- Assign every row to exactly ONE employee (last column)\n'
+    +'- Match BB training type (Sales/Technical) to employee role\n'
+    +'- No summary text, no paragraphs — ONLY pipe-delimited rows\n'
+    +'- STOP adding rows once a portfolio\'s point target is met\n'
     +'- Section headers: ** [Portfolio] Certification Plan  OR  ** [Portfolio] Black Belt Plan\n\n'
-    +'OUTPUT FORMAT (follow exactly):\n'
+    +'OUTPUT FORMAT:\n'
+    +'** Networking Black Belt Plan\n'
+    +'ELIGIBLE CANDIDATES: Name1 (Sales), Name2 (Technical)\n'
+    +'| Black Belt Meraki Sales Stage 1 | 1 pts | Stage 1 | 30min | Networking | Name1 |\n'
+    +'| Black Belt Provider Connectivity Stage 3 | 2 pts | Stage 3 | 60min | Networking + Security | Name2 |\n'
+    +'TOTAL BB PTS NEEDED: 10\n\n'
     +'** Networking Certification Plan\n'
     +'ELIGIBLE CANDIDATES: Name1, Name2\n'
-    +'LEVEL: Professional\n'
-    +'| CCNP Enterprise | 3 pts | Name1 |\n'
-    +'| CCNP Security | 3 pts | Name2 |\n'
-    +'TOTAL CERT PTS NEEDED: 6\n\n'
-    +'** Networking Black Belt Plan\n'
-    +'ELIGIBLE CANDIDATES: Name1, Name2\n'
-    +'| Black Belt Training Title | 2 pts | Stage 3 | Name1 |\n'
-    +'| Another BB Training | 1.5 pts | Stage 2 | Name2 |\n'
-    +'TOTAL BB PTS NEEDED: 10\n';
+    +'LEVEL: Associate\n'
+    +'| CCNA | 1 pts | Associate | — | Networking | Name1 |\n'
+    +'TOTAL CERT PTS NEEDED: 5\n';
 
   document.getElementById('cp-manual-modal').style.display='none';
   var btn=document.getElementById('cp-gen-btn');
