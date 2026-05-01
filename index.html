@@ -2136,9 +2136,9 @@ function cpFormatPlan(raw){
         ?'background:rgba(124,58,237,.15);border-left:4px solid #7c3aed;'
         :'background:rgba(4,159,217,.15);border-left:4px solid var(--blue2);';
       // Extract target from sec.total OR from section title "(Target: X pts)"
+      // Only show target badge when explicitly written in title as "(Target: X pts)"
       var targetNum=null;
-      if(sec.total){var tm=sec.total.match(/([\d.]+)/);if(tm)targetNum=tm[1];}
-      if(!targetNum){var tm2=sec.title.match(/[Tt]arget[:\s]+([\d.]+)/);if(tm2)targetNum=tm2[1];}
+      var tm2=sec.title.match(/[Tt]arget[:\s]+([\d.]+)/);if(tm2)targetNum=tm2[1];
       var cleanTitle=sec.title.replace(/\s*\([Tt]arget[^)]*\)/,'').trim();
       var targetBadge=targetNum
         ?'<span style="font-size:10px;font-weight:800;background:'+(isBBSection?'rgba(124,58,237,.35)':'rgba(4,159,217,.3)')+';border-radius:8px;padding:2px 10px;margin-left:10px;color:#fff;">Target: '+targetNum+' pts</span>'
