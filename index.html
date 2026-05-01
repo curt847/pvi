@@ -501,9 +501,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
       </div>
       <div id="cp-no-dpv-msg" class="cp-info" style="display:none"><strong>No DPV file loaded.</strong> Load a Partner Assessment DPV to see what-if cert goals.</div>
       <div id="cp-no-gap-msg" class="cp-info" style="display:none"><strong>No what-if targets set.</strong> Set targets on any architecture tab, then return here.</div>
-      <div id="cp-ref-files" style="display:flex;gap:10px;margin-bottom:14px;align-items:center;flex-wrap:wrap;">
-        <span style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-right:4px;">Reference Files:</span>
-      </div>
       <div id="cp-upload-row" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px;">
         <div class="cp-drop" id="cp-drop" style="flex:1;min-width:240px;margin-bottom:0;">
           <input type="file" id="cp-file-input" accept=".xlsx,.xls" />
@@ -1593,6 +1590,9 @@ var cpEmployees={};
 // TEAM CONFIG: paste Apps Script /exec URL to share key with colleagues
 var CP_GAS_URL = '';
 
+var CP_CERTS=[];
+var CP_BB=[];
+var CP_CERT_MAP={};
 function cpGetLevel(code,desc){
   // Only match exact cert codes from CP_CERTS — no exam aliases
   var arr=CP_CERT_MAP[code];
