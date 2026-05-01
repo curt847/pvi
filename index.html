@@ -2162,6 +2162,7 @@ function cpFormatPlan(raw){
       // Skip header rows: Training Name, Cert Name, empty first cell, etc.
       if(!p[0]||/^[-\s]+$/.test(p[0]))return;
       if(/^(training\s*(title|name)|cert\s*(name|code|title)|name|#|item)$/i.test(p[0]))return;
+      if(/cert\s*name/i.test(p[0]))return; // catch 'Cert Name (Code)' etc
       if(/^(training|certification|blackbelt|black belt)$/i.test(p[0])&&/^(pts?|points|score)$/i.test(p[1]||''))return;
       if(!cur)cur={title:'',items:[],total:null,candidates:[],currentLevel:null};
       // Format: | Name | X pts | Stage N or Level | Duration | Architectures | Assignee |
@@ -2371,7 +2372,7 @@ async function cpGenerate(){
     :'No employees currently hold a Professional-level cert.';
 
   // Build gap instructions
-  var gapInstructions='GAPS TO CLOSE (address EVERY one — do NOT output reasoning, just rows):\n';
+  var gapInstructions='GAPS TO CLOSE — you MUST reach each target exactly. Keep adding rows until each portfolio total >= its required pts. Do not stop early:\n';
   gaps.forEach(function(g,i){
     gapInstructions+=(i+1)+'. '+g.portfolio+' — '+(g.type==='blackbelt'?'Black Belt':'Career Cert')+' gap: +'+g.gapPts.toFixed(1)+' pts needed\n';
   });
@@ -2392,13 +2393,15 @@ async function cpGenerate(){
     if(!g)return;
     var assocCands=formatEligible(allEmpNames);
     var proCands=proEligible.length?formatEligible(proEligible):'(no employees with existing Professional cert)';
+    var proSection=proEligible.length
+      ?'LEVEL: Professional\n| [Real CCNP Exam Name] (CCNP-XXX) | 3 pts | Professional | — | '+p+' | '+proEligible[0]+'\n'
+      :'';
     outputTemplate+='** '+p+' Certification Plan (Target: '+g.gapPts.toFixed(1)+' pts)\n'
       +'ELIGIBLE CANDIDATES (Associate): '+assocCands+'\n'
-      +'ELIGIBLE CANDIDATES (Professional): '+proCands+'\n'
+      +(proEligible.length?'ELIGIBLE CANDIDATES (Professional): '+proCands+'\n':'')
       +'LEVEL: Associate\n'
-      +'| Cert Name (Code) | 1 pts | Associate | — | [Portfolio] | AssigneeName |\n'
-      +'LEVEL: Professional\n'
-      +'| Cert Name (Code) | 3 pts | Professional | — | [Portfolio] | AssigneeName |\n'
+      +'| [Real CCNA Exam Name] (CCNA-XXX) | 1 pts | Associate | — | '+p+' | [AssigneeName] |\n'
+      +proSection
       +'TOTAL CERT PTS NEEDED: '+g.gapPts.toFixed(1)+'\n\n';
   });
 
@@ -2439,7 +2442,7 @@ async function cpGenerate(){
     var resp=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:3000,
+      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:4000,
         system:'You are a Cisco 360 Partner Program expert. Output ONLY the pipe-delimited certification plan. Do not write any reasoning, analysis, thinking, or explanation. Begin your response directly with the first ** section header. Never output anything before the first ** header.',
         messages:[{role:'user',content:prompt}]})
     });
