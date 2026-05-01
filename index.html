@@ -2049,24 +2049,6 @@ function cpFormatPlan(raw){
       o+='<div style="display:flex;align-items:center;border:1px solid var(--border);border-radius:8px;margin-bottom:7px;overflow:hidden;padding:9px 14px;">'+item.name+metaBadges+ptsPill+assigneePill+'</div>';
 
     });
-    if(sec.total){
-      var isBB=/black.?belt/i.test(sec.title);
-      var label=isBB?'TOTAL BB PTS NEEDED:':'TOTAL CERT PTS NEEDED:';
-      // Extract just the number
-      var m=sec.total.match(/([\d.]+)\s*\/\s*([\d.]+)/);
-      var scoreStr=m?m[2]:sec.total.replace(/^TOTAL[^:]+:\s*/i,'').trim();
-      if(!scoreStr||scoreStr===sec.total)scoreStr=sec.total.match(/([\d.]+)/)?sec.total.match(/([\d.]+)/)[1]:'?';
-      // BB = solid purple pill, Cert = solid blue pill — both distinct from amber What-if
-      var pillBg=isBB?'#7c3aed':'#0284c7';
-      var pillBorder=isBB?'#6d28d9':'#0369a1';
-      o+='<div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:8px 0 2px;border-top:1px solid var(--border);margin-top:8px;">'
-        +'<span style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);">Target:</span>'
-        +'<span style="font-family:\'JetBrains Mono\',monospace;font-size:18px;font-weight:800;background:'+pillBg+';border:2px solid '+pillBorder+';color:#fff;padding:1px 12px;border-radius:9px;line-height:1.4;">'+scoreStr+' pts</span>'
-        +'</div>';
-
-
-
-    }
     return o+'</div>';
   }).join('');
 }
@@ -3139,29 +3121,39 @@ function cpRunManualPlan(){
   var firstBBPort=Object.keys(bbTargets).filter(function(p){return bbTargets[p]>0;})[0]||'Security';
   var firstBBTgt=(bbTargets[firstBBPort]||5);
 
-  var targBlock='TARGETS — track each portfolio independently; STOP that portfolio once its total >= target (cross-arch items count toward ALL portfolios they list simultaneously):\n';
+  // Build compact target summary for section headers
+  var targBlock='';
   Object.keys(bbTargets).forEach(function(p){if(bbTargets[p]>0)targBlock+=p+' Black Belt: '+bbTargets[p]+' pts\n';});
   Object.keys(certTargets).forEach(function(p){if(certTargets[p]>0)targBlock+=p+' Certification: '+certTargets[p]+' pts\n';});
 
-  var prompt='Output ONLY the pipe-delimited plan. No reasoning, no analysis, no prose. Every line must be: a ** section header, ELIGIBLE CANDIDATES:, LEVEL:, a |pipe-delimited row|, or a TOTAL line. Nothing else.\n\n'
+  // Employee lines — omit current pts summary to prevent AI outputting it
+  var empRoleLines=focusUsers.map(function(u){return u.name+' | '+u.role;}).join('\n');
+
+  var prompt='Output ONLY the pipe-delimited plan. No prose, no summaries, no per-person headers. '
+    +'Every line must be EXACTLY one of: a **Section Header**, ELIGIBLE CANDIDATES: ..., LEVEL: ..., a |pipe|row|, or TOTAL BB/CERT PTS NEEDED: X. Nothing else.\n\n'
+    +'TARGETS — track EACH PORTFOLIO independently. Count cross-arch items toward every portfolio they list. '
+    +'Once a portfolio running total >= its target, output NO MORE rows for that portfolio (even cross-arch ones):\n'
     +targBlock+'\n'
-    +'EMPLOYEES:\n'+empLines+'\n\n'
-    +'ROLE RULES (strict — no exceptions):\n'
-    +(salesNames?'- Sales employees ('+salesNames+'): ONLY trainings with Sales or Pre-Sales in track. Never Deployment/Support/SE.\n':'')
-    +(techNames?'- Technical employees ('+techNames+'): ONLY trainings with Deployment/Support/SE/Technical in track. Never Sales/Pre-Sales.\n':'')
-    +'- Neutral tracks may go to either.\n\n'
-    +'CROSS-ARCH: [CROSS-ARCH] trainings count toward ALL listed portfolios. Stop a portfolio the instant its running total meets its target.\n\n'
-    +'BB PRIORITY: 1) Cross-arch first 2) Sequential stages in same track (Stage1→2→3) 3) Shortest duration 4) Stage 1 for standalones. No training >120min when shorter alternatives exist.\n'
-    +'CERT PRIORITY: 1) Cross-arch first 2) Associate before Professional unless more pts needed.\n\n'
+    +'EMPLOYEES:\n'+empRoleLines+'\n\n'
+    +'ROLE RULES (zero exceptions):\n'
+    +(salesNames?'- '+salesNames+' (Sales): ONLY tracks with Sales or Pre-Sales in the name. Never Deployment/Support/SE.\n':'')
+    +(techNames?'- '+techNames+' (Technical): ONLY tracks with Deployment/Support/SE/Technical in the name. Never Sales/Pre-Sales.\n':'')
+    +'- Neutral tracks may go to either role.\n\n'
+    +'STAGE PREREQUISITE RULE (critical):\n'
+    +'- Only recommend Stage 2 of a track if Stage 1 of that SAME track is also included in this plan.\n'
+    +'- Only recommend Stage 3 of a track if BOTH Stage 1 AND Stage 2 of that same track are also included in this plan.\n'
+    +'- "Same track" means same base training name, e.g. "Black Belt Cisco Spaces Presales" Stages 1/2/3 are one track.\n\n'
+    +'BB PRIORITY: 1) Cross-arch first 2) Sequential stages in same track (Stage1→2→3) 3) Shortest duration 4) Stage 1 for standalones. Skip >120min when shorter exist.\n'
+    +'CERT PRIORITY: 1) Cross-arch first 2) Associate before Professional.\n\n'
     +'BB REFERENCE:\n'+bbRef+'\n\n'
-    +'CERT REFERENCE:\n'+certRef+'\n\n'
-    +'ROW FORMAT: | Name | X pts | Stage N or Level | Duration | Portfolio(s) | Assignee |\n\n'
-    +'OUTPUT STRUCTURE — one section per portfolio per type, BB separate from Cert:\n'
+    +(certRef?'CERT REFERENCE:\n'+certRef+'\n\n':'')
+    +'ROW FORMAT: | Training Name | X pts | Stage N or Level | Duration | Portfolio(s) | Assignee |\n\n'
+    +'SECTION STRUCTURE — one section per portfolio per type. DO NOT create per-person sub-sections:\n'
     +'** '+firstBBPort+' Black Belt Plan (Target: '+firstBBTgt+' pts)\n'
     +'ELIGIBLE CANDIDATES: '+eligibleStr+'\n'
     +'| Black Belt Example Sales Stage 1 | 1 pts | Stage 1 | 20min | '+firstBBPort+' | '+exampleSales+' |\n'
-    +'TOTAL BB PTS NEEDED: '+firstBBTgt+'\n'
-    +'(same structure for every remaining portfolio and type)';
+    +'| Black Belt Example Technical Stage 1 | 1 pts | Stage 1 | 30min | '+firstBBPort+' | '+exampleTech+' |\n'
+    +'(repeat for each remaining portfolio/type — BB and Cert always in separate sections)';
 
 
   document.getElementById('cp-manual-modal').style.display='none';
@@ -3176,7 +3168,7 @@ function cpRunManualPlan(){
     method:'POST',
     headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
     body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:3000,
-      system:'You are a Cisco 360 Partner Program expert. Output ONLY the plan — zero reasoning or explanation. Every single line of your response must be one of: a **Section Header**, ELIGIBLE CANDIDATES: ..., LEVEL: ..., a |pipe|delimited|row|, or TOTAL BB/CERT PTS NEEDED: X. If a line does not match one of these formats, do not output it.',
+      system:'You are a Cisco 360 Partner Program expert. Output ONLY the plan rows. NEVER create per-person sub-sections — one section per portfolio only. NEVER output prose, summaries, or reasoning. Every line must be: **Section Header, ELIGIBLE CANDIDATES:, LEVEL:, |pipe|row|, or TOTAL line. If it is not one of these, do not write it.',
       messages:[{role:'user',content:prompt}]})
   }).then(function(r){return r.json();}).then(function(data){
     if(data.error)throw new Error(data.error.type+': '+data.error.message);
