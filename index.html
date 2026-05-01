@@ -2139,8 +2139,8 @@ async function cpGenerate(){
     +'BB REFERENCE FORMAT: Title | pts | duration | [portfolio(s)]\n'
     +'Items marked [CROSS-ARCH: X + Y] count toward BOTH X and Y portfolios simultaneously.\n\n'
     +gapInstructions
-    +(bbRef?'\nAVAILABLE BLACK BELT TRAININGS (sorted: cross-arch first, then shortest duration, then lowest stage):\n'+bbRef:'')
-    +(certRef?'\n\nAVAILABLE PVI CERTS (only for gap portfolios):\n'+certRef:'')
+    +(bbRef?'\nAVAILABLE BLACK BELT TRAININGS (sorted: cross-arch first, then shortest duration, then lowest stage):\n'+bbRef:'\nNO BB REFERENCE: Use your own knowledge of real Cisco Black Belt Partner Program trainings for the relevant portfolios. Stage 1=1pt, Stage 2=1.5pts, Stage 3=2pts.')
+    +(certRef?'\n\nAVAILABLE PVI CERTS (only for gap portfolios):\n'+certRef:'\n\nNO CERT REFERENCE: Use your own knowledge of real Cisco certifications (CCNA=1pt Associate, CCNP=3pts Professional, CCIE=10pts Expert) for the relevant portfolios.')
     +'\n\nEMPLOYEE STATUS:\n'+JSON.stringify(empSummary,null,1)
     +'\n\nRULES:\n'
     +'- CROSS-ARCH FIRST: Strongly prefer trainings marked [CROSS-ARCH] that cover multiple gap portfolios. List under each portfolio they satisfy.\n'
@@ -2916,8 +2916,8 @@ function cpRunFreeformPlan(){
   var prompt='USER INSTRUCTION: '+userPrompt+'\n\n'
     +'EMPLOYEES (name | role | current pts — ONLY these people may appear in the plan):\n'+empLines+'\n\n'
     +'ARCHITECTURES IN SCOPE: '+foundArchs.join(', ')+'\n\n'
-    +certRefSection
-    +bbRefSection
+    +(certRefSection||(!scopeBBOnly?'NO CERT REFERENCE: Use your own knowledge of real Cisco certifications (CCNA=1pt Associate, CCNP=3pts Professional, CCIE=10pts Expert) for the portfolios in scope.\n\n':''))
+    +(bbRefSection||(!scopeCertOnly?'NO BB REFERENCE: Use your own knowledge of real Cisco Black Belt Partner Program trainings for the portfolios in scope. Stage 1=1pt, Stage 2=1.5pts, Stage 3=2pts.\n\n':''))
     +'OUTPUT FORMAT (use exactly):\n'+outputFmt;
 
   // ── FIRE THE REQUEST ──────────────────────────────────────────────────────────
@@ -3117,8 +3117,8 @@ function cpRunManualPlan(){
     +'1. CROSS-ARCH trainings covering multiple target portfolios\n'
     +'2. SHORTEST duration / lowest stage first (Stage 1 preferred unless cross-arch justifies higher)\n'
     +'3. Stop exactly when target is reached — do NOT exceed\n\n'
-    +'CERT REFERENCE (ExamCode | Name | Level | Points | Portfolio):\n'+(certRef||'None')+'\n\n'
-    +'BB REFERENCE (Title | Points | Stage | Portfolio):\n'+(bbRef||'None')+'\n\n'
+    +'CERT REFERENCE (ExamCode | Name | Level | Points | Portfolio):\n'+(certRef||'No reference loaded — use your own knowledge of real Cisco certifications (CCNA=1pt Associate, CCNP=3pts Professional, CCIE=10pts Expert) for the target portfolios.')+'\n\n'
+    +'BB REFERENCE (Title | Points | Stage | Portfolio):\n'+(bbRef||'No reference loaded — use your own knowledge of real Cisco Black Belt trainings. Stage 1=1pt, Stage 2=1.5pts, Stage 3=2pts. Choose trainings relevant to the target portfolios.')+'\n\n'
     +'CRITICAL OUTPUT RULES:\n'
     +'- Every row: | Training/Cert Name | X pts | Stage N or Level | Duration or — | Architectures covered | Assignee |\n'
     +'- Show ALL architectures the training covers (e.g. "Networking + Security" for cross-arch)\n'
