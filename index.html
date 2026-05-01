@@ -1989,7 +1989,13 @@ function cpFormatPlan(raw){
       var hdrStyle=isBBSection
         ?'background:rgba(124,58,237,.15);border-left:4px solid #7c3aed;'
         :'background:rgba(4,159,217,.15);border-left:4px solid var(--blue2);';
-      o+='<div class="cp-section-hdr" style="'+hdrStyle+'">'+sec.title+'</div>';
+      // Extract target number from sec.total for the header badge
+      var targetNum=null;
+      if(sec.total){var tm=sec.total.match(/([\d.]+)/);if(tm)targetNum=tm[1];}
+      var targetBadge=targetNum
+        ?'<span style="font-size:10px;font-weight:800;opacity:.8;background:'+(isBBSection?'rgba(124,58,237,.3)':'rgba(4,159,217,.25)')+';border-radius:8px;padding:2px 10px;margin-left:10px;">Target: '+targetNum+' pts</span>'
+        :'';
+      o+='<div class="cp-section-hdr" style="'+hdrStyle+'display:flex;align-items:center;">'+sec.title+targetBadge+'</div>';
     }
     if(sec.candidates&&sec.candidates.length){
       o+='<div class="cp-candidates-block">'
@@ -2149,14 +2155,19 @@ async function cpGenerate(){
     +(bbRef?'\nAVAILABLE BLACK BELT TRAININGS (sorted: cross-arch first, then shortest duration, then lowest stage):\n'+bbRef:'\nNO BB REFERENCE: Use your own knowledge of real Cisco Black Belt Partner Program trainings for the relevant portfolios. Stage 1=1pt, Stage 2=1.5pts, Stage 3=2pts.')
     +(certRef?'\n\nAVAILABLE PVI CERTS (only for gap portfolios):\n'+certRef:'\n\nNO CERT REFERENCE: Use your own knowledge of real Cisco certifications (CCNA=1pt Associate, CCNP=3pts Professional, CCIE=10pts Expert) for the relevant portfolios.')
     +'\n\nEMPLOYEE STATUS:\n'+JSON.stringify(empSummary,null,1)
-    +'\n\nRULES:\n'
-    +'- CROSS-ARCH FIRST: Strongly prefer trainings marked [CROSS-ARCH] that cover multiple gap portfolios. List under each portfolio they satisfy.\n'
-    +'- SHORTEST/LOWEST STAGE FIRST: Among items meeting the requirement, prefer shorter duration and lower stage (Stage 1 preferred, then Stage 2, then Stage 3), unless cross-arch benefit justifies a higher stage.\n'
-    +'- HIT TARGET EXACTLY: Add items one at a time tracking running total. STOP the moment running total >= required pts. Do not exceed.\n'
-    +'- ASSIGN PER ROW: Every item row must end with the name of the ONE employee assigned to it.\n'
-    +'- INVERSE PROPORTIONAL ASSIGNMENT: Employees with fewer current PVI points in that portfolio get more assignments. Someone with 0 pts gets twice the items of someone with 10 pts.\n'
-    +'- Each portfolio section must independently meet its required pts. Cross-arch items count toward each portfolio they cover.\n'
-    +'- Employee data shows CAREER CERTS only (not BB trainings). Use cert portfolio pts to judge assignment order.\n'
+    +'\n\nBLACK BELT SELECTION PRIORITY:\n'
+    +'1. CROSS-ARCH FIRST: Strongly prefer trainings marked [CROSS-ARCH] — list them under every portfolio they satisfy.\n'
+    +'2. SEQUENTIAL TRACKS: Within a single track, include Stage 1 before Stage 2 before Stage 3 — building on prior learning.\n'
+    +'3. SHORTEST DURATION: Among equal-point options with no cross-arch/sequential advantage, pick the shortest. Avoid trainings over 120min when shorter alternatives exist.\n'
+    +'4. STAGE PREFERENCE: For standalone trainings, prefer Stage 1 unless cross-arch benefit justifies a higher stage.\n\n'
+    +'CERT SELECTION PRIORITY:\n'
+    +'1. CROSS-ARCH FIRST: Prefer certs that count toward multiple target portfolios.\n'
+    +'2. SHORTEST PATH: Prefer Associate-level unless Professional/Expert pts are needed to hit the target.\n\n'
+    +'ASSIGNMENT RULES:\n'
+    +'- HIT TARGET EXACTLY: Add rows one at a time, track running total. STOP the moment total >= required pts.\n'
+    +'- ASSIGN PER ROW: Every row must end with the ONE employee assigned.\n'
+    +'- INVERSE PROPORTIONAL: Employees with fewer current pts in that portfolio get more assignments.\n'
+    +'- Cross-arch items count toward each portfolio they cover.\n'
     +'- For Professional Certs, group under LEVEL: Professional / LEVEL: Associate / LEVEL: Expert sub-headers.\n'
     +'- ITEM FORMAT: Title | X pts | Stage N or Level | Duration | Architectures covered | Assignee Name\n\n'
     +'OUTPUT FORMAT (one section per gap):\n\n'
@@ -3125,8 +3136,16 @@ function cpRunManualPlan(){
     +'- Every row must end with the assignee name.\n'
     +'- Sales employees only receive Sales-track or neutral trainings. Technical employees only receive Technical-track or neutral trainings.\n'
     +'- Spread assignments across ALL employees — do not assign everything to one person.\n'
-    +'- Prefer CROSS-ARCH trainings that satisfy multiple portfolios simultaneously.\n'
     +'- STOP adding rows the instant the running total meets or exceeds the target.\n\n'
+    +'BLACK BELT SELECTION PRIORITY:\n'
+    +'1. CROSS-ARCH FIRST: Strongly prefer trainings marked [CROSS-ARCH] that count toward multiple portfolios — list them under every portfolio they satisfy.\n'
+    +'2. SEQUENTIAL TRACKS: Within a single track (e.g. Webex Sales Stage 1 → Stage 2 → Stage 3), include stages in order — Stage 1 before Stage 2 before Stage 3. This builds logically on prior learning.\n'
+    +'3. SHORTEST DURATION: Among trainings with equal points and no cross-arch or sequential advantage, always pick the shortest duration. Never pick a training over 120 minutes if a shorter option exists for the same points.\n'
+    +'4. STAGE PREFERENCE: For standalone (non-sequential) trainings, prefer Stage 1 options over Stage 2 or Stage 3 unless cross-arch benefit justifies a higher stage.\n\n'
+    +'CERT SELECTION PRIORITY:\n'
+    +'1. CROSS-ARCH FIRST: Prefer certs that count toward multiple target portfolios.\n'
+    +'2. SHORTEST PATH: Among certs with cross-arch advantage or equal coverage, prefer the one with shortest study/exam time (typically Associate over Professional unless pts needed require Professional).\n'
+    +'3. STAGE 1 EQUIVALENT: Prefer Associate-level certs unless Professional or Expert is needed to hit the point target.\n\n'
     +'CERT REFERENCE:\n'+(certRef||'Use real Cisco certs: CCNA=1pt (Associate), CCNP=3pts (Professional), CCIE=10pts (Expert).')+'\n\n'
     +'BB REFERENCE:\n'+(bbRef||'Use real Cisco Black Belt trainings. Stage 1=1pt, Stage 2=1.5pts, Stage 3=2pts.')+'\n\n'
     +'ROW FORMAT: | Name | X pts | Stage N or Level | Duration or — | Portfolio | Assignee |\n\n'
