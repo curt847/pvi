@@ -528,7 +528,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
         <button class="cp-gen-btn" id="cp-gen-btn" onclick="cpGenerate()" style="background:linear-gradient(135deg,#d97706 0%,#b45309 100%);"><span>&#10022;</span> What-If Cert Plan</button>
         <button class="cp-gen-btn" id="cp-manual-btn" onclick="cpShowManualModal()" style="background:linear-gradient(135deg,#6d28d9 0%,#7c3aed 100%);"><span>&#9998;</span> Manual Plan Criteria</button>
         <button class="cp-gen-btn" id="cp-freeform-btn" onclick="cpShowFreeformModal()" style="background:linear-gradient(135deg,#0284c7 0%,#0369a1 100%);"><span>&#128172;</span> Freeform Prompt</button>
-        <div style="font-size:13px;color:var(--muted)" id="cp-gen-sub">AI will focus on satisfying your what-if PVI gap goals.</div>
+        <div style="font-size:13px;color:var(--muted);display:none;" id="cp-gen-sub"></div>
       </div>
 
       <!-- Manual Plan Modal -->
@@ -578,9 +578,23 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
             <button onclick="document.getElementById('cp-freeform-modal').style.display='none'" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1;">✕</button>
           </div>
           <div style="padding:20px 24px;">
-            <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">Describe your cert/BB plan in plain language. The AI will interpret it using your loaded employee and training data.</div>
-            <div style="font-size:11px;color:var(--muted);margin-bottom:8px;font-style:italic;">Examples: "Give all Collaboration trainings to Matthew White and divide the others among the rest" · "Focus on Security certs for senior staff only" · "Prioritize Stage 3 BB trainings for Networking"</div>
-            <textarea id="cp-freeform-text" rows="5" placeholder="Type your instructions here…" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;resize:vertical;box-sizing:border-box;"></textarea>
+            <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">Describe your plan in plain language. <strong style="color:var(--text);">Your prompt must include all three of the following:</strong></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;">
+              <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:9px 12px;">
+                <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--blue);margin-bottom:4px;">1 · Goal</div>
+                <div style="font-size:11px;color:var(--muted);line-height:1.5;">How many BB pts, Pro Cert pts, or which specific cert(s) you want</div>
+              </div>
+              <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:9px 12px;">
+                <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--blue);margin-bottom:4px;">2 · People</div>
+                <div style="font-size:11px;color:var(--muted);line-height:1.5;">One or more employee names who will complete the training</div>
+              </div>
+              <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:9px 12px;">
+                <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--blue);margin-bottom:4px;">3 · Architecture</div>
+                <div style="font-size:11px;color:var(--muted);line-height:1.5;">One or more portfolios (e.g. Collaboration, Security, Networking)</div>
+              </div>
+            </div>
+            <div style="font-size:11px;color:var(--muted);margin-bottom:8px;font-style:italic;">Example: "Get 10 Black Belt pts in Collaboration for Matthew White and Robert Young" · "Add 5 Pro Cert pts in Security for Curt Vurpillat"</div>
+            <textarea id="cp-freeform-text" rows="4" placeholder="e.g. Get 10 Black Belt pts in Collaboration for Matthew White and Robert Young" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;resize:vertical;box-sizing:border-box;"></textarea>
             <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px;">
               <button onclick="document.getElementById('cp-freeform-modal').style.display='none'" style="padding:9px 20px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Cancel</button>
               <button onclick="cpRunFreeformPlan()" style="padding:9px 24px;border-radius:8px;border:none;background:linear-gradient(135deg,#0f766e 0%,#0284c7 100%);color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:800;cursor:pointer;">Generate Plan →</button>
@@ -1996,22 +2010,30 @@ function cpFormatPlan(raw){
       var metaBadges='';
       // Cross-arch / arch covered badge
       var archLabel=item.archCovered||null;
-      if(!archLabel){
-        var _bbPorts=[];
-        CP_BB.forEach(function(b){if(b['LM_TITLE']===item.name&&_bbPorts.indexOf(b['PXP Portfolio'])<0)_bbPorts.push(b['PXP Portfolio']);});
-        if(_bbPorts.length>1)archLabel=_bbPorts.join(' + ');
-      }
-      if(archLabel){
+      // Always look up real portfolios from CP_BB data — don't trust AI arch text
+      var _bbPorts=[];
+      CP_BB.forEach(function(b){if(b['LM_TITLE']===item.name&&_bbPorts.indexOf(b['PXP Portfolio'])<0)_bbPorts.push(b['PXP Portfolio']);});
+      if(_bbPorts.length>1)archLabel=_bbPorts.join(' + ');
+      else if(_bbPorts.length===1&&!archLabel)archLabel=_bbPorts[0];
+      if(archLabel&&!/cross arch/i.test(archLabel)){
         metaBadges+='<span style="font-size:10px;font-weight:700;background:rgba(124,58,237,.15);border:1px solid rgba(124,58,237,.3);color:#a78bfa;padding:2px 8px;border-radius:10px;margin-left:6px;white-space:nowrap;">⟷ '+archLabel+'</span>';
+      } else if(archLabel){
+        // AI said "Cross Architecture" — still look it up
+        if(_bbPorts.length>1)metaBadges+='<span style="font-size:10px;font-weight:700;background:rgba(124,58,237,.15);border:1px solid rgba(124,58,237,.3);color:#a78bfa;padding:2px 8px;border-radius:10px;margin-left:6px;white-space:nowrap;">⟷ '+_bbPorts.join(' + ')+'</span>';
       }
       // Stage badge
       if(item.stage){
         var stageCol=item.stage.includes('3')?'#c4b5fd':item.stage.includes('2')?'#a78bfa':'#7c3aed';
         metaBadges+='<span style="font-size:10px;font-weight:700;background:rgba(124,58,237,.12);border:1px solid rgba(124,58,237,.25);color:'+stageCol+';padding:2px 8px;border-radius:10px;margin-left:6px;white-space:nowrap;">'+item.stage+'</span>';
       }
-      // Duration badge
-      if(item.dur){
-        metaBadges+='<span style="font-size:10px;font-weight:700;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.25);color:#22c55e;padding:2px 8px;border-radius:10px;margin-left:6px;white-space:nowrap;">⏱ '+item.dur+'</span>';
+      // Duration — look up from CP_BB data first, fall back to parsed value
+      var actualDur=item.dur;
+      if(!actualDur){
+        var bbMatch=CP_BB.find(function(b){return b['LM_TITLE']===item.name&&b['Duration']!=null;});
+        if(bbMatch)actualDur=bbMatch['Duration']+'min';
+      }
+      if(actualDur&&actualDur!=='—'&&actualDur!=='?min'){
+        metaBadges+='<span style="font-size:10px;font-weight:700;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.25);color:#22c55e;padding:2px 8px;border-radius:10px;margin-left:6px;white-space:nowrap;">⏱ '+actualDur+'</span>';
       }
       // Assignee pill
       var assigneeHtml=item.assignee
@@ -2028,8 +2050,10 @@ function cpFormatPlan(raw){
       var label=isBB?'TOTAL BB POINTS NEEDED:':'TOTAL CERT POINTS NEEDED:';
       var totalColor=isBB?'#a78bfa':'var(--blue)';
       var totalScoreColor=isBB?'#7c3aed':'var(--blue2)';
+      // Extract just the number from "TOTAL BB PTS NEEDED: 10" or "TOTAL CERT POINTS NEEDED: 6"
       var m=sec.total.match(/([\d.]+)\s*\/\s*([\d.]+)/);
-      var scoreStr=m?m[2]:sec.total.replace(/TOTAL\s+\S+\s+PTS?\s+\S+:\s*/i,'').trim();
+      var scoreStr=m?m[2]:sec.total.replace(/^TOTAL[^:]+:\s*/i,'').trim();
+      if(!scoreStr||scoreStr===sec.total)scoreStr=sec.total.match(/([\d.]+)/)?sec.total.match(/([\d.]+)/)[1]:'?';
       o+='<div class="cp-total-big"><span class="cp-total-big-label" style="color:'+totalColor+'">'+label+'</span><span class="cp-total-big-score" style="color:'+totalScoreColor+'">'+scoreStr+'</span></div>';
     }
     return o+'</div>';
@@ -2792,68 +2816,142 @@ function cpRunFreeformPlan(){
   var userPrompt=(document.getElementById('cp-freeform-text').value||'').trim();
   if(!userPrompt){alert('Please type your instructions first.');return;}
 
-  // Build context: employees, cert ref, BB ref
+  // ── KNOWN EMPLOYEE NAMES (from loaded data) ─────────────────────────────────
   var allNames=Object.keys(cpEmployees).slice();
   Object.keys(bbEmployees).forEach(function(n){if(allNames.indexOf(n)<0)allNames.push(n);});
-  var empLines=allNames.map(function(name){
+
+  // ── KNOWN ARCHITECTURES ──────────────────────────────────────────────────────
+  var knownArchs=['Collaboration','Networking','Security','Data Center','Service Provider','IoT','Cloud','Enterprise Networking'];
+
+  // ── GUARDRAIL: determine scope (BB only, Cert only, or both) ─────────────────
+  var lp=userPrompt.toLowerCase();
+  var mentionsBB=/(black\s*belt|\bbb\b|bb\s*pt|bb\s*point)/.test(lp);
+  var mentionsCert=/(pro\s*cert|professional\s*cert|ccnp|ccie|ccna|associate|expert|certification(?!\s*plan))/.test(lp);
+  // If neither is explicitly mentioned, treat as ambiguous (will ask AI to validate)
+  var scopeBBOnly  = mentionsBB && !mentionsCert;
+  var scopeCertOnly= mentionsCert && !mentionsBB;
+  var scopeBoth    = mentionsBB && mentionsCert;
+  var scopeAmbig   = !mentionsBB && !mentionsCert;
+
+  // ── GUARDRAIL: check for required pieces ─────────────────────────────────────
+  var missingPieces=[];
+
+  // 1. Goal: must mention a point target, specific cert name, or "BB" / "cert" type
+  var hasGoal=/([\d]+\s*(pt|pts|point|points))|ccnp|ccie|ccna|black\s*belt|\bbb\b|pro\s*cert|professional|associate|expert/.test(lp);
+  if(!hasGoal) missingPieces.push('**Goal** — specify how many BB pts, Pro Cert pts, or which specific certification(s) you want');
+
+  // 2. People: at least one known employee name must appear
+  var foundNames=allNames.filter(function(n){return userPrompt.toLowerCase().indexOf(n.toLowerCase())>=0;});
+  if(!foundNames.length) missingPieces.push('**People** — include one or more employee names (e.g. "Matthew White", "Curt Vurpillat")');
+
+  // 3. Architecture: at least one known arch must appear
+  var foundArchs=knownArchs.filter(function(a){return lp.indexOf(a.toLowerCase())>=0;});
+  if(!foundArchs.length) missingPieces.push('**Architecture** — specify one or more portfolios (e.g. Collaboration, Security, Networking)');
+
+  // ── If anything is missing, show error in output and stop ────────────────────
+  if(missingPieces.length){
+    document.getElementById('cp-freeform-modal').style.display='none';
+    var out=document.getElementById('cp-ai-out');
+    var body=document.getElementById('cp-ai-body');
+    if(out){out.classList.add('show');out.scrollIntoView({behavior:'smooth',block:'start'});}
+    body.innerHTML='<div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.35);border-radius:10px;padding:18px 20px;">'
+      +'<div style="font-size:14px;font-weight:800;color:#ef4444;margin-bottom:10px;">⚠ Your prompt is missing required information</div>'
+      +'<div style="font-size:13px;color:var(--muted);margin-bottom:12px;">Please include all three of the following in your prompt, then try again:</div>'
+      +'<ul style="list-style:none;padding:0;display:flex;flex-direction:column;gap:8px;">'
+      +missingPieces.map(function(m){
+        return '<li style="background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:10px 14px;font-size:13px;color:var(--text);">✗ '+m+'</li>';
+      }).join('')
+      +'</ul>'
+      +'<div style="margin-top:14px;font-size:12px;color:var(--muted);">Example: <em style="color:var(--text);">"Get 10 Black Belt pts in Collaboration for Matthew White and Robert Young"</em></div>'
+      +'</div>';
+    return;
+  }
+
+  // ── BUILD SCOPED CONTEXT (only inject what's relevant to the request) ─────────
+  var empLines=foundNames.map(function(name){
     var emp=cpEmployees[name];
     var bbEmp=bbEmployees[name];
     var certPts=emp?emp.certs.filter(function(c){return c.isPVI;}).reduce(function(s,c){return s+c.points;},0):0;
     var bbPts=bbEmp?bbEmp.completions.reduce(function(s,c){return s+c.multiplier;},0):0;
-    return name+' (certPts:'+certPts+(bbPts?', bbPts:'+bbPts:'')+')';
+    var role=bbEmp?bbEmp.role:(emp&&emp.certs[0]?'Unknown':'Unknown');
+    return name+' | role:'+(role||'Unknown')+' | certPts:'+certPts+(bbPts?' | bbPts:'+bbPts:'');
   }).join('\n');
 
-  var _seen={};
-  var certRef=CP_CERTS.filter(function(c){
-    if(!['Associate','Professional','Expert'].includes(c['Level Name']))return false;
-    var k=c['Exam Code']+'|'+c['Portfolio'];if(_seen[k])return false;_seen[k]=true;return true;
-  }).map(function(c){return c['Exam Code']+' | '+c['Exam Name']+' | '+c['Level Name']+' | '+c['Multiplier']+'pts | '+c['Portfolio'];}).join('\n');
+  // Cert reference: only include if certs were requested; filter to relevant archs
+  var certRefSection='';
+  if(!scopeBBOnly){
+    var _seen={};
+    var certRef=CP_CERTS.filter(function(c){
+      if(!['Associate','Professional','Expert'].includes(c['Level Name']))return false;
+      if(foundArchs.length&&foundArchs.indexOf(c['Portfolio'])<0)return false;
+      var k=c['Exam Code']+'|'+c['Portfolio'];if(_seen[k])return false;_seen[k]=true;return true;
+    }).map(function(c){
+      return c['Exam Code']+' | '+c['Exam Name']+' | '+c['Level Name']+' | '+c['Multiplier']+'pts | '+c['Portfolio'];
+    }).join('\n');
+    if(certRef) certRefSection='CERT REFERENCE (ExamCode | Name | Level | Points | Portfolio):\n'+certRef+'\n\n';
+  }
 
-  var _seenBB={};
-  var bbRef=CP_BB.filter(function(b){
-    var k=b['LM_TITLE']+'|'+b['PXP Portfolio'];if(_seenBB[k])return false;_seenBB[k]=true;return true;
-  }).slice(0,150).map(function(b){
-    return b['LM_TITLE']+' | '+b['PVI Mulitiplier']+'pts | '+b['STAGE']+' | '+b['PXP Portfolio'];
-  }).join('\n');
+  // BB reference: only include if BB was requested; filter to relevant archs
+  var bbRefSection='';
+  if(!scopeCertOnly){
+    var _seenBB={};
+    var bbRef=CP_BB.filter(function(b){
+      if(foundArchs.length&&foundArchs.indexOf(b['PXP Portfolio'])<0)return false;
+      var k=b['LM_TITLE']+'|'+b['PXP Portfolio'];if(_seenBB[k])return false;_seenBB[k]=true;return true;
+    }).slice(0,150).map(function(b){
+      return b['LM_TITLE']+' | '+b['PVI Mulitiplier']+'pts | '+b['STAGE']+' | '+b['PXP Portfolio']+(b['CrossArch']?' [CROSS-ARCH]':'');
+    }).join('\n');
+    if(bbRef) bbRefSection='BB REFERENCE (Title | Points | Stage | Portfolio):\n'+bbRef+'\n\n';
+  }
+
+  // ── BUILD SYSTEM PROMPT with strict scope rules ───────────────────────────────
+  var scopeRule='';
+  if(scopeBBOnly)  scopeRule='The user asked ONLY for Black Belt training. Output ONLY Black Belt sections (** [Portfolio] Black Belt Plan). Do NOT include any Certification Plan sections under any circumstances.';
+  if(scopeCertOnly)scopeRule='The user asked ONLY for Professional/Associate/Expert Certifications. Output ONLY Certification Plan sections (** [Portfolio] Certification Plan). Do NOT include any Black Belt sections under any circumstances.';
+  if(scopeBoth)    scopeRule='The user asked for both Black Belt and Certifications. Output only what was explicitly requested — no extra sections.';
+  if(scopeAmbig)   scopeRule='The user did not clearly specify BB or Cert type. Output only what the user explicitly requested. Do not add sections beyond what was asked.';
+
+  var systemMsg='You are a Cisco 360 Partner Program expert. '
+    +scopeRule+' '
+    +'Output ONLY the pipe-delimited plan rows and section headers. No reasoning, no explanation, no preamble. '
+    +'Begin directly with the first ** header. '
+    +'STOP adding rows once the requested point target is met — never exceed it.';
+
+  // ── BUILD USER PROMPT ─────────────────────────────────────────────────────────
+  var outputFmtBB='** [Portfolio] Black Belt Plan\nELIGIBLE CANDIDATES: Name1 (Sales), Name2 (Technical)\n| BB Training Title | X pts | Stage N | Portfolio | AssigneeName |\nTOTAL BB PTS NEEDED: X\n';
+  var outputFmtCert='** [Portfolio] Certification Plan\nELIGIBLE CANDIDATES: Name1, Name2\nLEVEL: Professional\n| Cert Name | X pts | Level | Portfolio | AssigneeName |\nTOTAL CERT PTS NEEDED: X\n';
+  var outputFmt=(scopeBBOnly?outputFmtBB:scopeCertOnly?outputFmtCert:outputFmtBB+'\n'+outputFmtCert);
 
   var prompt='USER INSTRUCTION: '+userPrompt+'\n\n'
-    +'EMPLOYEES:\n'+empLines+'\n\n'
-    +'CERT REFERENCE (ExamCode | Name | Level | Points | Portfolio):\n'+certRef+'\n\n'
-    +'BB REFERENCE (Title | Points | Stage | Portfolio):\n'+bbRef+'\n\n'
-    +'Interpret the user instruction and build a plan. Each row must include the assignee name in the last pipe column. '
-    +'Use EXACTLY this format:\n\n'
-    +'** [Portfolio] Certification Plan\n'
-    +'ELIGIBLE CANDIDATES: Name1, Name2\n'
-    +'LEVEL: Professional\n'
-    +'| Cert Name | 3 pts | AssigneeName |\n'
-    +'TOTAL CERT PTS NEEDED: X\n\n'
-    +'** [Portfolio] Black Belt Plan\n'
-    +'ELIGIBLE CANDIDATES: Name1, Name2\n'
-    +'| BB Training Title | 2 pts | Stage 3 | AssigneeName |\n'
-    +'TOTAL BB PTS NEEDED: X\n';
+    +'EMPLOYEES (name | role | current pts — ONLY these people may appear in the plan):\n'+empLines+'\n\n'
+    +'ARCHITECTURES IN SCOPE: '+foundArchs.join(', ')+'\n\n'
+    +certRefSection
+    +bbRefSection
+    +'OUTPUT FORMAT (use exactly):\n'+outputFmt;
 
+  // ── FIRE THE REQUEST ──────────────────────────────────────────────────────────
   document.getElementById('cp-freeform-modal').style.display='none';
   var btn=document.getElementById('cp-gen-btn');
-  var out=document.getElementById('cp-ai-out');
-  var body=document.getElementById('cp-ai-body');
+  var out2=document.getElementById('cp-ai-out');
+  var body2=document.getElementById('cp-ai-body');
   if(btn)btn.disabled=true;
-  if(out){out.classList.add('show');out.scrollIntoView({behavior:'smooth',block:'start'});}
-  body.innerHTML='<div class="cp-plain">Interpreting your instructions…</div>';
+  if(out2){out2.classList.add('show');out2.scrollIntoView({behavior:'smooth',block:'start'});}
+  body2.innerHTML='<div class="cp-plain">Interpreting your instructions…</div>';
 
   fetch('https://api.anthropic.com/v1/messages',{
     method:'POST',
     headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
     body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:3000,
-      system:'You are a Cisco 360 Partner Program expert. Follow the user\'s instructions exactly. Output ONLY the pipe-delimited plan. No reasoning or explanation. Begin directly with the first ** header.',
+      system:systemMsg,
       messages:[{role:'user',content:prompt}]})
   }).then(function(r){return r.json();}).then(function(data){
     if(data.error)throw new Error(data.error.type+': '+data.error.message);
-    body.innerHTML=cpFormatPlan(data.content[0].text);
+    body2.innerHTML=cpFormatPlan(data.content[0].text);
     document.getElementById('cp-print-btn').style.display='';
     document.getElementById('cp-email-btn').style.display='';
     if(btn){btn.disabled=false;btn.innerHTML='<span>&#10022;</span> What-If Cert Plan';}
   }).catch(function(err){
-    body.innerHTML='<div class="cp-plain">Error: '+err.message+'</div>';
+    body2.innerHTML='<div class="cp-plain">Error: '+err.message+'</div>';
     if(btn){btn.disabled=false;btn.innerHTML='<span>&#10022;</span> What-If Cert Plan';}
   });
 }
