@@ -2183,7 +2183,7 @@ function cpFormatPlan(raw){
           else if(/cross.arch/i.test(col)||col.startsWith('['))crossArch=col.replace(/^\[|\]$/g,'');
           else if(col&&col!=='—'){
             var isPortfolio=/^(Networking|Security|Collaboration|Cloud|Services|Splunk|Mass Scale|Cross Architecture)$/i.test(col);
-            if(!isPortfolio&&!assignee)assignee=col;
+            if(!isPortfolio&&!assignee&&!/^n\/a$/i.test(col))assignee=col;
             else if(isPortfolio&&!archCovered)archCovered=col;
           }
         }
@@ -2329,13 +2329,17 @@ async function cpGenerate(){
     if(_bbTitleMap[t].ports.indexOf(b['PXP Portfolio'])<0)_bbTitleMap[t].ports.push(b['PXP Portfolio']);
   });
   // Sort: cross-arch first, then by duration asc (nulls last), then pts desc
+  // Sort: cross-arch first, then ≤120min, then by duration asc
   var _bbSorted=Object.values(_bbTitleMap).sort(function(a,b){
     if(a.cross!==b.cross)return a.cross?-1:1;
     var da=a.dur!=null?a.dur:9999,db=b.dur!=null?b.dur:9999;
     if(da!==db)return da-db;
     return b.pts-a.pts;
   });
-  var bbRef=_bbSorted.map(function(b){
+  var _bbShortWI=_bbSorted.filter(function(b){return (b.dur||0)<=120;});
+  var _bbLongWI=_bbSorted.filter(function(b){return (b.dur||0)>120;});
+  var _bbFinalWI=_bbShortWI.length>=15?_bbShortWI:_bbShortWI.concat(_bbLongWI);
+  var bbRef=_bbFinalWI.map(function(b){
     var portStr=b.ports.length>1?'[CROSS-ARCH: '+b.ports.join(' + ')+']':'['+b.ports[0]+']';
     var durStr=b.dur!=null?b.dur+'min':'?min';
     return b.title+'|'+b.pts+' pts|'+durStr+'|'+portStr;
@@ -2417,8 +2421,8 @@ async function cpGenerate(){
     +'BB STAGE RULES:\n'
     +'- Only recommend Stage 2 if Stage 1 of the same track is also in this plan.\n'
     +'- Only recommend Stage 3 if Stage 1 AND Stage 2 of the same track are also in this plan.\n'
-    +'- Prefer Stage 1 for standalone trainings. No training >120min when shorter alternatives exist.\n\n'
-    +'BB PRIORITY: Cross-arch first → sequential stages → shortest duration → Stage 1 for standalones.\n'
+    +'- Duration ≤120min is a HARD LIMIT. Never pick any training over 120 minutes if a shorter alternative exists for that portfolio.\n\n'
+    +'BB PRIORITY: 1) Cross-arch first 2) Duration ≤120min HARD LIMIT — never pick a training over 120min if a shorter one exists 3) Sequential stages in same track 4) Stage 1 for standalones.\n'
     +'CERT PRIORITY: Cross-arch first → Associate before Professional.\n'
     +'CROSS-ARCH: [CROSS-ARCH] items count toward every listed portfolio. Stop a portfolio once its total >= target.\n\n'
     +(bbRef?'BB REFERENCE:\n'+bbRef:'')
@@ -3359,12 +3363,36 @@ function cpRunManualPlan(){
   }).map(function(c){return c['Exam Code']+' | '+c['Exam Name']+' | '+c['Level Name']+' | '+c['Multiplier']+'pts | '+c['Portfolio'];}).join('\n');
 
   var bbPortfolios=Object.keys(bbTargets).filter(function(p){return bbTargets[p]>0;});
+  // Determine role-eligible tracks for each employee
+  var salesTracks=/sales|pre.?sales|presales|marketeer|business/i;
+  var techTracks=/deployment|support|\bse\b|technical|engineer|operations|cx/i;
+  var hasSales=focusUsers.some(function(u){return u.role==='Sales';});
+  var hasTech=focusUsers.some(function(u){return u.role==='Technical';});
+  // Pre-filter bbRef: prefer ≤120min, sort cross-arch first then shortest
   var _seenBB={};
-  var bbRef=CP_BB.filter(function(b){
+  var _bbFiltered=CP_BB.filter(function(b){
     if(bbPortfolios.indexOf(b['PXP Portfolio'])<0)return false;
+    // Only include tracks that match at least one employee's role
+    var isSalesTrack=salesTracks.test(b['TRACK']||'');
+    var isTechTrack=techTracks.test(b['TRACK']||'');
+    var isNeutral=!isSalesTrack&&!isTechTrack;
+    if(isSalesTrack&&!hasSales&&!isNeutral)return false;
+    if(isTechTrack&&!hasTech&&!isNeutral)return false;
     var k=b['LM_TITLE']+'|'+b['PXP Portfolio'];if(_seenBB[k])return false;_seenBB[k]=true;return true;
-  }).slice(0,120).map(function(b){
-    return b['LM_TITLE']+' | '+b['PVI Mulitiplier']+'pts | '+b['STAGE']+' | '+b['PXP Portfolio']+(b['CrossArch']?' [CROSS-ARCH]':'');
+  }).sort(function(a,b){
+    // Cross-arch first, then shortest duration, then stage
+    if(a.CrossArch!==b.CrossArch)return a.CrossArch?-1:1;
+    var da=a.Duration!=null?a.Duration:9999,db=b.Duration!=null?b.Duration:9999;
+    if(da!==db)return da-db;
+    return 0;
+  });
+  // Separate ≤120min from longer ones — only add long ones if short pool is thin
+  var _bbShort=_bbFiltered.filter(function(b){return (b.Duration||0)<=120;});
+  var _bbLong=_bbFiltered.filter(function(b){return (b.Duration||0)>120;});
+  var _bbFinal=_bbShort.length>=20?_bbShort:_bbShort.concat(_bbLong);
+  var bbRef=_bbFinal.slice(0,120).map(function(b){
+    var dur=b.Duration?b.Duration+'min':'?min';
+    return b['LM_TITLE']+' | '+b['PVI Mulitiplier']+'pts | '+b['STAGE']+' | '+dur+' | '+b['PXP Portfolio']+(b.CrossArch?' [CROSS-ARCH]':'');
   }).join('\n');
 
   var targLines=[];
@@ -3403,14 +3431,15 @@ function cpRunManualPlan(){
     +targBlock+'\n'
     +'EMPLOYEES:\n'+empRoleLines+'\n\n'
     +'ROLE RULES (zero exceptions):\n'
-    +(salesNames?'- '+salesNames+' (Sales): ONLY tracks with Sales or Pre-Sales in the name. Never Deployment/Support/SE.\n':'')
-    +(techNames?'- '+techNames+' (Technical): ONLY tracks with Deployment/Support/SE/Technical in the name. Never Sales/Pre-Sales.\n':'')
-    +'- Neutral tracks may go to either role.\n\n'
+    +(salesNames?'- '+salesNames+' (Sales): ONLY assign trainings with Sales or Pre-Sales in the track. Never assign to Technical/Deployment/Support/SE tracks.\n':'')
+    +(techNames?'- '+techNames+' (Technical): ONLY assign trainings with Deployment/Support/SE/Technical in the track. Never assign to Sales/Pre-Sales tracks.\n':'')
+    +'- If a track type has no eligible employee, DO NOT include that training in the plan at all.\n'
+    +'- Never use N/A as an assignee — if no one is eligible for a training, skip it entirely.\n\n'
     +'STAGE PREREQUISITE RULE (critical):\n'
     +'- Only recommend Stage 2 of a track if Stage 1 of that SAME track is also included in this plan.\n'
     +'- Only recommend Stage 3 of a track if BOTH Stage 1 AND Stage 2 of that same track are also included in this plan.\n'
     +'- "Same track" means same base training name, e.g. "Black Belt Cisco Spaces Presales" Stages 1/2/3 are one track.\n\n'
-    +'BB PRIORITY: 1) Cross-arch first 2) Sequential stages in same track (Stage1→2→3) 3) Shortest duration 4) Stage 1 for standalones. Skip >120min when shorter exist.\n'
+    +'BB PRIORITY: 1) Cross-arch first 2) Duration ≤120min HARD LIMIT — never pick a training over 120min if a shorter one exists 3) Sequential stages in same track 4) Stage 1 for standalones.\n'
     +'CERT PRIORITY: 1) Cross-arch first 2) Associate before Professional.\n\n'
     +'BB REFERENCE:\n'+bbRef+'\n\n'
     +(certRef?'CERT REFERENCE:\n'+certRef+'\n\n':'')
