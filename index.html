@@ -1858,10 +1858,10 @@ function cpRenderRoster(){
     var tr=document.createElement('tr');
     tr.innerHTML='<td><div class="cp-name">'+emp.name+expiryIndicator+'</div>'
       +'<div class="cp-email">'+emp.email+(soonestStr&&(row.hasExpired||row.hasSoon)?' &nbsp;·&nbsp; <span style="color:'+(row.hasExpired?'var(--red)':'var(--amber)')+'">'+(row.hasExpired?'Expired ':'Expires ')+soonestStr+'</span>':'')+'</div></td>'
-      +'<td>'+(row.pviCerts.length?row.pviCerts.map(function(c){
+      +'<td>'+(row.pviCerts.length?(function(){var seen={};return row.pviCerts.filter(function(c){if(seen[c.code])return false;seen[c.code]=true;return true;}).map(function(c){
         var exp=c.expiryStatus==='expired'?' style="opacity:.5"':c.expiryStatus==='soon'?' style="outline:1px solid var(--amber)"':'';
         return'<span class="cp-badge '+cpLevelCls(c.level)+'"'+exp+' title="'+c.desc+'">'+c.code+'</span>';
-      }).join(''):'<span style="color:var(--muted);font-size:12px">None on PVI list</span>')+'</td>'
+      }).join('');})() :'<span style="color:var(--muted);font-size:12px">None on PVI list</span>')+'</td>'
       +'<td><span class="cp-pts" style="color:'+(row.totalPts>=10?'#f59e0b':row.totalPts>=3?'#049fd9':'var(--muted)')+'">'+row.totalPts+'</span></td>'
       +'<td style="color:var(--muted);font-size:13px">'+row.otherCerts.slice(0,3).map(function(c){return c.code;}).join(', ')+(row.otherCerts.length>3?' +'+(row.otherCerts.length-3):'')+'</td>';
     tbody.appendChild(tr);
@@ -2157,7 +2157,8 @@ function cpFormatPlan(raw){
       var p=t.replace(/^\||\|$/g,'').split('|').map(function(x){return x.trim().replace(/\*\*/g,'');});
       // Skip header rows: Training Name, Cert Name, empty first cell, etc.
       if(!p[0]||/^[-\s]+$/.test(p[0]))return;
-      if(/^(training\s*name|cert\s*name|name|#)$/i.test(p[0]))return;
+      if(/^(training\s*(title|name)|cert\s*(name|code|title)|name|#|item)$/i.test(p[0]))return;
+      if(/^(training|certification|blackbelt|black belt)$/i.test(p[0])&&/^(pts?|points|score)$/i.test(p[1]||''))return;
       if(!cur)cur={title:'',items:[],total:null,candidates:[],currentLevel:null};
       // Format: | Name | X pts | Stage N or Level | Duration | Architectures | Assignee |
       var ptsIdx=-1;
@@ -2197,6 +2198,8 @@ function cpFormatPlan(raw){
     if(t.indexOf('|')<0&&!/^(ELIGIBLE CANDIDATES|LEVEL:|TOTAL BB|TOTAL CERT)/i.test(t))return;
     if(!cur)cur={title:'',items:[],total:null,candidates:[],currentLevel:null,plain:[]};
     if(!cur.plain)cur.plain=[];
+    // Don't show ELIGIBLE CANDIDATES lines as plain text (already in section header)
+    if(/^ELIGIBLE CANDIDATES/i.test(t))return;
     cur.plain.push(t.replace(/\*\*/g,''));
   });
   if(cur)sections.push(cur);
