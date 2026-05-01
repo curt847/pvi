@@ -1918,6 +1918,68 @@ function cpLoadKey(){
 
 
 
+
+// ── PORTFOLIO ACHIEVEMENT SUMMARY ────────────────────────────────────────────
+function cpBuildPortfolioSummary(filteredText, bbTargets, certTargets) {
+  // Compute achieved totals from filtered plan text
+  var achieved = {}; // 'bb:Portfolio' -> pts
+  var isBBSec = true;
+  filteredText.split('\n').forEach(function(line) {
+    var t = line.trim();
+    if (/^\*{1,2}/.test(t)) { isBBSec = !/cert/i.test(t); return; }
+    if (t.indexOf('|') < 0) return;
+    var parts = t.replace(/^\||\|$/g,'').split('|').map(function(s){return s.trim();});
+    var ptsIdx = -1;
+    for (var i = 0; i < parts.length; i++) { if (/^[\d.]+\s*pts?$/i.test(parts[i])){ptsIdx=i;break;} }
+    if (ptsIdx < 0) return;
+    var name = parts.slice(0, ptsIdx).join(' ').trim();
+    var pts = parseFloat(parts[ptsIdx]);
+    if (!pts || isNaN(pts)) return;
+    var ports = [];
+    CP_BB.forEach(function(b){if(b['LM_TITLE']===name&&ports.indexOf(b['PXP Portfolio'])<0)ports.push(b['PXP Portfolio']);});
+    if (!ports.length && parts[4]) parts[4].split('+').forEach(function(p){var pp=p.trim();if(pp)ports.push(pp);});
+    var prefix = isBBSec ? 'bb:' : 'cert:';
+    ports.forEach(function(p) {
+      if ((isBBSec?bbTargets[p]:certTargets[p])>0) achieved[prefix+p]=(achieved[prefix+p]||0)+pts;
+    });
+  });
+
+  // Build summary pills
+  var pills = '';
+  var allMet = true;
+  Object.keys(bbTargets).forEach(function(p) {
+    if (!bbTargets[p]) return;
+    var got = Math.min(achieved['bb:'+p]||0, bbTargets[p]);
+    var met = got >= bbTargets[p];
+    if (!met) allMet = false;
+    var color = met ? '#22c55e' : '#f59e0b';
+    var bg = met ? 'rgba(34,197,94,.12)' : 'rgba(245,158,11,.12)';
+    var border = met ? 'rgba(34,197,94,.3)' : 'rgba(245,158,11,.3)';
+    pills += '<span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;background:'+bg+';border:1px solid '+border+';color:'+color+';padding:3px 10px;border-radius:8px;margin:2px;">'
+      +(met?'✓ ':'')
+      +p+' BB: '+got.toFixed(got%1?1:0)+' / '+bbTargets[p]+' pts'
+      +'</span>';
+  });
+  Object.keys(certTargets).forEach(function(p) {
+    if (!certTargets[p]) return;
+    var got = Math.min(achieved['cert:'+p]||0, certTargets[p]);
+    var met = got >= certTargets[p];
+    if (!met) allMet = false;
+    var color = met ? '#22c55e' : '#0284c7';
+    var bg = met ? 'rgba(34,197,94,.12)' : 'rgba(4,159,217,.12)';
+    var border = met ? 'rgba(34,197,94,.3)' : 'rgba(4,159,217,.3)';
+    pills += '<span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;background:'+bg+';border:1px solid '+border+';color:'+color+';padding:3px 10px;border-radius:8px;margin:2px;">'
+      +(met?'✓ ':'')
+      +p+' Cert: '+got.toFixed(got%1?1:0)+' / '+certTargets[p]+' pts'
+      +'</span>';
+  });
+
+  return '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:10px 14px;margin-bottom:14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;">'
+    +'<span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-right:4px;">Portfolio Targets</span>'
+    +pills
+    +'</div>';
+}
+
 // ── CROSS-ARCH AWARE POST-PROCESSOR ─────────────────────────────────────────
 // After the AI responds, enforce portfolio targets by tracking running totals
 // across ALL sections, counting cross-arch items toward every portfolio they cover.
@@ -3230,12 +3292,15 @@ function cpRunManualPlan(){
     +'BB REFERENCE:\n'+bbRef+'\n\n'
     +(certRef?'CERT REFERENCE:\n'+certRef+'\n\n':'')
     +'ROW FORMAT: | Training Name | X pts | Stage N or Level | Duration | Portfolio(s) | Assignee |\n\n'
-    +'SECTION STRUCTURE — one section per portfolio per type. DO NOT create per-person sub-sections:\n'
-    +'** '+firstBBPort+' Black Belt Plan (Target: '+firstBBTgt+' pts)\n'
+    +'OUTPUT STRUCTURE — ONE unified Black Belt section for all portfolios combined. Separate Cert section if needed.\n'
+    +'Order: cross-arch items first (highest portfolio coverage first), then single-portfolio items, shortest duration first.\n'
+    +'DO NOT create one section per portfolio. DO NOT create per-person sub-sections.\n\n'
+    +'** Black Belt Plan\n'
     +'ELIGIBLE CANDIDATES: '+eligibleStr+'\n'
-    +'| Black Belt Example Sales Stage 1 | 1 pts | Stage 1 | 20min | '+firstBBPort+' | '+exampleSales+' |\n'
+    +'| Black Belt One Cisco Sales Stage 1 (Oct 2025) | 1 pts | Stage 1 | 36min | Cloud + AI Infrastructure + Collaboration + Networking + Security | '+exampleSales+' |\n'
+    +'| Black Belt Cisco Spaces Presales Stage 1 | 1 pts | Stage 1 | 29min | Collaboration + Networking + Security | '+exampleSales+' |\n'
     +'| Black Belt Example Technical Stage 1 | 1 pts | Stage 1 | 30min | '+firstBBPort+' | '+exampleTech+' |\n'
-    +'(repeat for each remaining portfolio/type — BB and Cert always in separate sections)';
+    +'(continue until EACH target portfolio total >= its target, counting cross-arch toward all listed portfolios)';
 
 
   document.getElementById('cp-manual-modal').style.display='none';
@@ -3249,13 +3314,14 @@ function cpRunManualPlan(){
   fetch('https://api.anthropic.com/v1/messages',{
     method:'POST',
     headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-    body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:3000,
+    body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:4000,
       system:'You are a Cisco 360 Partner Program expert. Output ONLY the plan rows. NEVER create per-person sub-sections — one section per portfolio only. NEVER output prose, summaries, or reasoning. Every line must be: **Section Header, ELIGIBLE CANDIDATES:, LEVEL:, |pipe|row|, or TOTAL line. If it is not one of these, do not write it.',
       messages:[{role:'user',content:prompt}]})
   }).then(function(r){return r.json();}).then(function(data){
     if(data.error)throw new Error(data.error.type+': '+data.error.message);
     var filtered=cpFilterByTargets(data.content[0].text,bbTargets,certTargets);
-    body.innerHTML=cpFormatPlan(filtered);
+    var summary=cpBuildPortfolioSummary(filtered,bbTargets,certTargets);
+    body.innerHTML=summary+cpFormatPlan(filtered);
     document.getElementById('cp-print-btn').style.display='';
     document.getElementById('cp-email-btn').style.display='';
     if(btn){btn.disabled=false;btn.innerHTML='<span>&#10022;</span> Regenerate Plan';}
