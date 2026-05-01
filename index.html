@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cisco PVI Planner</title>
+<title>Cisco PVI and Certification Planner</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 // ── PEAK PVI SCORES ──────────────────────────────────────────────────────────
@@ -311,7 +311,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 .cp-total-big{display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:14px 0 2px;border-top:1px solid var(--border);margin-top:10px;}
 .cp-total-big-label{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--blue);padding-top:3px;}
 .cp-total-big-score{font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:800;color:var(--blue2);}
-.cp-item-no-who{display:grid;grid-template-columns:1fr auto;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;overflow:hidden;}
+.cp-item-no-who{display:flex;align-items:stretch;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;overflow:hidden;}
 .cp-roster-print-btn{background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 12px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;}
 .cp-roster-print-btn:hover{border-color:var(--blue);color:var(--blue);}
 /* CERT PLANNER PANEL */
@@ -380,7 +380,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
   <div class="upload-screen">
     <div class="upload-card" style="max-width:560px;">
       <div style="margin-bottom:14px"><svg width="60" height="37" viewBox="0 0 64 40" fill="none"><rect x="0" y="16" width="8" height="8" rx="2" fill="#049fd9"/><rect x="10" y="8" width="8" height="16" rx="2" fill="#049fd9"/><rect x="20" y="0" width="8" height="24" rx="2" fill="#049fd9"/><rect x="30" y="4" width="8" height="20" rx="2" fill="#049fd9"/><rect x="40" y="0" width="8" height="24" rx="2" fill="#049fd9"/><rect x="50" y="8" width="8" height="16" rx="2" fill="#049fd9"/></svg></div>
-      <h2>Cisco PVI Planner</h2>
+      <h2>Cisco PVI and Certification Planner</h2>
       <p>Upload your <strong style="color:#dde7f8">Partner Assessment DPV</strong> to get started. Personnel reports and Black Belt files can be loaded from the Cert Planner screen.</p>
 
       <!-- DPV drop zone -->
@@ -415,7 +415,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 <!-- APP -->
 <div id="app-shell" class="hidden">
   <header class="app-header">
-    <div class="logo"><svg width="28" height="17" viewBox="0 0 64 40" fill="none"><rect x="0" y="16" width="8" height="8" rx="2" fill="#049fd9"/><rect x="10" y="8" width="8" height="16" rx="2" fill="#049fd9"/><rect x="20" y="0" width="8" height="24" rx="2" fill="#049fd9"/><rect x="30" y="4" width="8" height="20" rx="2" fill="#049fd9"/><rect x="40" y="0" width="8" height="24" rx="2" fill="#049fd9"/><rect x="50" y="8" width="8" height="16" rx="2" fill="#049fd9"/></svg>PVI Planner</div>
+    <div class="logo"><svg width="28" height="17" viewBox="0 0 64 40" fill="none"><rect x="0" y="16" width="8" height="8" rx="2" fill="#049fd9"/><rect x="10" y="8" width="8" height="16" rx="2" fill="#049fd9"/><rect x="20" y="0" width="8" height="24" rx="2" fill="#049fd9"/><rect x="30" y="4" width="8" height="20" rx="2" fill="#049fd9"/><rect x="40" y="0" width="8" height="24" rx="2" fill="#049fd9"/><rect x="50" y="8" width="8" height="16" rx="2" fill="#049fd9"/></svg>PVI &amp; Cert Planner</div>
     <div class="hdr-partner"><div class="hdr-name" id="h-partner">—</div><div class="hdr-meta" id="h-meta">—</div></div>
     <div class="hdr-right">
       <div class="mo-wrap"><span>Month:</span><select id="month-select"></select></div>
@@ -2030,11 +2030,11 @@ function cpFormatPlan(raw){
       var assigneeHtml=item.assignee
         ?'<div style="padding:8px 14px;background:rgba(4,159,217,.1);border-left:1px solid var(--border);font-size:12px;font-weight:700;color:#049fd9;white-space:nowrap;display:flex;align-items:center;gap:5px;"><span style="opacity:.6;">→</span>'+item.assignee+'</div>'
         :'';
-      o+='<div class="cp-item-no-who">'
-        +'<div class="cp-item-name">'+item.name+metaBadges+'</div>'
-        +(assigneeHtml||'')
-        +'<div class="cp-item-pts">'+item.pts+'</div>'
-        +'</div>';
+      var ptsRaw=(item.pts||'').replace(/\s*pts?/i,'').trim();
+      var ptsPill='<span style="font-size:11px;font-weight:800;background:rgba(245,158,11,.18);border:1px solid rgba(245,158,11,.4);color:var(--amber);padding:2px 10px;border-radius:10px;margin-left:8px;white-space:nowrap;font-family:monospace;">'+ptsRaw+(ptsRaw.indexOf('.')>=0?' pts':' pt')+'</span>';
+      var assigneePill=item.assignee?'<span style="font-size:11px;font-weight:700;background:rgba(4,159,217,.12);border:1px solid rgba(4,159,217,.25);color:#049fd9;padding:2px 10px;border-radius:10px;margin-left:6px;white-space:nowrap;">→ '+item.assignee+'</span>':'';
+      o+='<div style="display:flex;align-items:center;border:1px solid var(--border);border-radius:8px;margin-bottom:7px;overflow:hidden;padding:9px 14px;">'+item.name+metaBadges+ptsPill+assigneePill+'</div>';
+
     });
     if(sec.total){
       var isBB=/black.?belt/i.test(sec.title);
@@ -2832,7 +2832,7 @@ function cpRunFreeformPlan(){
   if(!hasGoal) missingPieces.push('**Goal** — specify how many BB pts, Pro Cert pts, or which specific certification(s) you want');
 
   // 2. People: at least one known employee name must appear
-  var foundNames=allNames.filter(function(n){return userPrompt.toLowerCase().indexOf(n.toLowerCase())>=0;});
+  var foundNames=allNames.filter(function(n){var nl=n.toLowerCase(),ul=userPrompt.toLowerCase();if(ul.indexOf(nl)>=0)return true;var parts=nl.split(/\s+/);return parts.some(function(p){return p.length>2&&ul.indexOf(p)>=0;});});
   if(!foundNames.length) missingPieces.push('**People** — include one or more employee names (e.g. "Matthew White", "Curt Vurpillat")');
 
   // 3. Architecture: at least one known arch must appear
@@ -2897,16 +2897,16 @@ function cpRunFreeformPlan(){
 
   // ── BUILD SYSTEM PROMPT with strict scope rules ───────────────────────────────
   var scopeRule='';
-  if(scopeBBOnly)  scopeRule='The user asked ONLY for Black Belt training. Output ONLY Black Belt sections (** [Portfolio] Black Belt Plan). Do NOT include any Certification Plan sections under any circumstances.';
-  if(scopeCertOnly)scopeRule='The user asked ONLY for Professional/Associate/Expert Certifications. Output ONLY Certification Plan sections (** [Portfolio] Certification Plan). Do NOT include any Black Belt sections under any circumstances.';
+  if(scopeBBOnly)  scopeRule='STRICT SCOPE — BLACK BELT ONLY: The user asked ONLY for Black Belt training. You MUST output ONLY Black Belt plan sections. NEVER output any Certification Plan sections. Do not include certs, CCNA, CCNP, CCIE, or any cert-related content.';
+  if(scopeCertOnly)scopeRule='STRICT SCOPE — CERTIFICATIONS ONLY: The user asked ONLY for certifications. You MUST output ONLY Certification Plan sections. NEVER output any Black Belt sections.';
   if(scopeBoth)    scopeRule='The user asked for both Black Belt and Certifications. Output only what was explicitly requested — no extra sections.';
-  if(scopeAmbig)   scopeRule='The user did not clearly specify BB or Cert type. Output only what the user explicitly requested. Do not add sections beyond what was asked.';
+  if(scopeAmbig)   scopeRule='IMPORTANT: The user did not clearly specify Black Belt or Certification. Default to Black Belt training ONLY unless certifications are explicitly mentioned. Do not add extra sections beyond what was asked.';
 
   var systemMsg='You are a Cisco 360 Partner Program expert. '
     +scopeRule+' '
     +'Output ONLY the pipe-delimited plan rows and section headers. No reasoning, no explanation, no preamble. '
     +'Begin directly with the first ** header. '
-    +'STOP adding rows once the requested point target is met — never exceed it.';
+    +'STOP adding rows the moment running total reaches or exceeds the requested points. NEVER exceed the target. Distribute assignments across ALL listed employees, not just one person.';
 
   // ── BUILD USER PROMPT ─────────────────────────────────────────────────────────
   var outputFmtBB='** [Portfolio] Black Belt Plan\nELIGIBLE CANDIDATES: Name1 (Sales), Name2 (Technical)\n| BB Training Title | X pts | Stage N | Portfolio | AssigneeName |\nTOTAL BB PTS NEEDED: X\n';
@@ -2916,8 +2916,8 @@ function cpRunFreeformPlan(){
   var prompt='USER INSTRUCTION: '+userPrompt+'\n\n'
     +'EMPLOYEES (name | role | current pts — ONLY these people may appear in the plan):\n'+empLines+'\n\n'
     +'ARCHITECTURES IN SCOPE: '+foundArchs.join(', ')+'\n\n'
-    +(certRefSection||(!scopeBBOnly?'NO CERT REFERENCE: Use your own knowledge of real Cisco certifications (CCNA=1pt Associate, CCNP=3pts Professional, CCIE=10pts Expert) for the portfolios in scope.\n\n':''))
-    +(bbRefSection||(!scopeCertOnly?'NO BB REFERENCE: Use your own knowledge of real Cisco Black Belt Partner Program trainings for the portfolios in scope. Stage 1=1pt, Stage 2=1.5pts, Stage 3=2pts.\n\n':''))
+    +(scopeBBOnly?'':(certRefSection||'NO CERT REFERENCE: Use your own knowledge of real Cisco certifications (CCNA=1pt Associate, CCNP=3pts Professional, CCIE=10pts Expert) for the portfolios in scope.\n\n'))
+    +(scopeCertOnly?'':(bbRefSection||'NO BB REFERENCE: Use your own knowledge of real Cisco Black Belt Partner Program trainings for the portfolios in scope. Stage 1=1pt, Stage 2=1.5pts, Stage 3=2pts.\n\n'))
     +'OUTPUT FORMAT (use exactly):\n'+outputFmt;
 
   // ── FIRE THE REQUEST ──────────────────────────────────────────────────────────
@@ -3104,41 +3104,29 @@ function cpRunManualPlan(){
     return s;
   }).join('\n');
 
-  var prompt='You are a Cisco 360 Partner Program expert building a certification and Black Belt plan.\n\n'
-    +'TARGETS (add EXACTLY this many points — do not exceed):\n'+targLines.join('\n')+'\n\n'
-    +'EMPLOYEES (name | role | primary arch | current pts):\n'+empLines+'\n\n'
-    +'PRE-COMPUTED ASSIGNMENT RULES (follow exactly):\n'+assignmentRules+'\n\n'
-    +'INVERSE PROPORTIONAL RULE: Within each portfolio\'s assignee list, distribute items so someone with 20 pts gets half as many items as someone with 10 pts.\n\n'
-    +'BB ROLE RULE: Each employee is tagged Sales or Technical. For Black Belt trainings:\n'
-    +'- Assign Sales-track BB trainings (title contains "Sales", "Pre-Sales", "Marketeer", "Business") to employees tagged Sales\n'
-    +'- Assign Technical-track BB trainings (title contains "Deployment", "Support", "SE", "Engineer", "Technical") to employees tagged Technical\n'
-    +'- Cross-role trainings (neither clearly Sales nor Technical) can be assigned to either\n\n'
-    +'SELECTION PRIORITY:\n'
-    +'1. CROSS-ARCH trainings covering multiple target portfolios\n'
-    +'2. SHORTEST duration / lowest stage first (Stage 1 preferred unless cross-arch justifies higher)\n'
-    +'3. Stop exactly when target is reached — do NOT exceed\n\n'
-    +'CERT REFERENCE (ExamCode | Name | Level | Points | Portfolio):\n'+(certRef||'No reference loaded — use your own knowledge of real Cisco certifications (CCNA=1pt Associate, CCNP=3pts Professional, CCIE=10pts Expert) for the target portfolios.')+'\n\n'
-    +'BB REFERENCE (Title | Points | Stage | Portfolio):\n'+(bbRef||'No reference loaded — use your own knowledge of real Cisco Black Belt trainings. Stage 1=1pt, Stage 2=1.5pts, Stage 3=2pts. Choose trainings relevant to the target portfolios.')+'\n\n'
-    +'CRITICAL OUTPUT RULES:\n'
-    +'- Every row: | Training/Cert Name | X pts | Stage N or Level | Duration or — | Architectures covered | Assignee |\n'
-    +'- Show ALL architectures the training covers (e.g. "Networking + Security" for cross-arch)\n'
-    +'- Include duration where known — if unknown write —\n'
-    +'- Assign every row to exactly ONE employee (last column)\n'
-    +'- Match BB training type (Sales/Technical) to employee role\n'
-    +'- No summary text, no paragraphs — ONLY pipe-delimited rows\n'
-    +'- STOP adding rows once a portfolio\'s point target is met\n'
-    +'- Section headers: ** [Portfolio] Certification Plan  OR  ** [Portfolio] Black Belt Plan\n\n'
-    +'OUTPUT FORMAT:\n'
-    +'** Networking Black Belt Plan\n'
-    +'ELIGIBLE CANDIDATES: Name1 (Sales), Name2 (Technical)\n'
-    +'| Black Belt Meraki Sales Stage 1 | 1 pts | Stage 1 | 30min | Networking | Name1 |\n'
-    +'| Black Belt Provider Connectivity Stage 3 | 2 pts | Stage 3 | 60min | Networking + Security | Name2 |\n'
-    +'TOTAL BB PTS NEEDED: 10\n\n'
-    +'** Networking Certification Plan\n'
-    +'ELIGIBLE CANDIDATES: Name1, Name2\n'
+  // Build explicit ELIGIBLE CANDIDATES list for every section
+  var eligibleStr=focusUsers.map(function(u){return u.name+' ('+u.role+')';}).join(', ');
+  var prompt='You are a Cisco 360 Partner Program expert. Build a plan that meets EXACTLY the requested points.\n\n'
+    +'MANDATORY RULES:\n'
+    +'1. ELIGIBLE CANDIDATES in each section MUST include ALL of these people: '+eligibleStr+'\n'
+    +'2. Distribute assignments across ALL eligible candidates — do NOT assign every row to one person.\n'
+    +'3. Keep a running point total per portfolio. STOP the INSTANT running total >= target. NEVER exceed target.\n'
+    +'4. Output ONLY pipe-delimited rows and section headers — no prose, no reasoning.\n\n'
+    +'TARGETS (stop the moment total >= target — do not add even one more row after hitting it):\n'+targLines.join('\n')+'\n\n'
+    +'EMPLOYEES:\n'+empLines+'\n\n'
+    +'BB ROLE RULE: Sales employees → Sales-track BB trainings. Technical employees → Technical-track BB trainings.\n\n'
+    +'CERT REFERENCE:\n'+(certRef||'Use real Cisco certs: CCNA=1pt (Associate), CCNP=3pts (Professional), CCIE=10pts (Expert).')+'\n\n'
+    +'BB REFERENCE:\n'+(bbRef||'Use real Cisco Black Belt trainings: Stage 1=1pt, Stage 2=1.5pts, Stage 3=2pts.')+'\n\n'
+    +'OUTPUT FORMAT (use actual employee names — show ALL employees in ELIGIBLE CANDIDATES):\n'
+    +'** [Portfolio] Black Belt Plan\n'
+    +'ELIGIBLE CANDIDATES: '+eligibleStr+'\n'
+    +'| BB Training Title | X pts | Stage N | Ymin | Portfolio | AssigneeName |\n'
+    +'TOTAL BB PTS NEEDED: X\n\n'
+    +'** [Portfolio] Certification Plan\n'
+    +'ELIGIBLE CANDIDATES: '+eligibleStr+'\n'
     +'LEVEL: Associate\n'
-    +'| CCNA | 1 pts | Associate | — | Networking | Name1 |\n'
-    +'TOTAL CERT PTS NEEDED: 5\n';
+    +'| Cert Name | X pts | Associate | — | Portfolio | AssigneeName |\n'
+    +'TOTAL CERT PTS NEEDED: X\n';
 
   document.getElementById('cp-manual-modal').style.display='none';
   var btn=document.getElementById('cp-gen-btn');
@@ -3152,7 +3140,7 @@ function cpRunManualPlan(){
     method:'POST',
     headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
     body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:3000,
-      system:'You are a Cisco 360 Partner Program expert. Output ONLY the pipe-delimited plan. No reasoning or explanation. Begin directly with the first ** header.',
+      system:'You are a Cisco 360 Partner Program expert. Output ONLY the pipe-delimited plan. No reasoning, no explanation. Begin directly with the first ** header. CRITICAL: Never exceed the point target for any portfolio — stop adding rows the moment the running total reaches the target.',
       messages:[{role:'user',content:prompt}]})
   }).then(function(r){return r.json();}).then(function(data){
     if(data.error)throw new Error(data.error.type+': '+data.error.message);
