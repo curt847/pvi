@@ -2357,8 +2357,20 @@ async function cpGenerate(){
   // BB eligible: anyone in bbEmployees (if BB file loaded), else same as proEligible
   var bbLoaded=Object.keys(bbEmployees).length>0;
   var bbEligibleAll=bbLoaded?Object.keys(bbEmployees).sort():proEligible.slice();
-  // All employees eligible for Associate certs
-  var allEmpNames=Object.keys(cpEmployees).sort();
+  // Restrict eligibility: must have ≥1 PVI cert pt OR ≥1 BB pt
+  var qualifiedEmps=Object.values(cpEmployees).filter(function(emp){
+    var certPts=(function(){var seen={};return emp.certs.filter(function(c){return c.isPVI;}).reduce(function(s,c){if(seen[c.code])return s;seen[c.code]=true;return s+c.points;},0);})();
+    var bbPts=bbEmployees[emp.name]?bbEmployees[emp.name].completions.reduce(function(s,c){return s+c.multiplier;},0):0;
+    return certPts>0||bbPts>0;
+  }).map(function(e){return e.name;}).sort();
+  // Fall back to all employees if no one qualifies (e.g. no files loaded)
+  var allEmpNames=qualifiedEmps.length?qualifiedEmps:Object.keys(cpEmployees).sort();
+
+  // Pro eligible: qualified employees who hold a Professional cert
+  proEligible=proEligible.filter(function(n){return allEmpNames.indexOf(n)>=0;});
+  // BB eligible: qualified employees
+  bbEligibleAll=bbEligibleAll.filter(function(n){return allEmpNames.indexOf(n)>=0;});
+  if(!bbEligibleAll.length)bbEligibleAll=allEmpNames.slice();
 
   function formatEligible(arr){
     if(!arr.length)return'(none loaded)';
@@ -2386,26 +2398,32 @@ async function cpGenerate(){
       +'ELIGIBLE CANDIDATES: '+bbCands+'\n'
       +'| Training Title | X pts | Stage N | Ymin | [Portfolio(s)] | AssigneeName |\n'
       +'TOTAL BB PTS NEEDED: '+g.gapPts.toFixed(1)+'\n\n';
+    // Append cert recommendations for this portfolio if Pro-eligible employees exist
+    if(proEligible.length&&certRefNoExpertPortfolios.indexOf(p)>=0){
+      outputTemplate+='** '+p+' Professional Cert Recommendations (Optional supplement)\n'
+        +'ELIGIBLE CANDIDATES: '+formatEligible(proEligible)+'\n'
+        +'LEVEL: Professional\n'
+        +'| [Real CCNP exam for '+p+'] | 3 pts | Professional | — | '+p+' | '+proEligible[0]+' |\n'
+        +'LEVEL: Associate\n'
+        +'| [Real CCNA exam for '+p+'] | 1 pts | Associate | — | '+p+' | '+allEmpNames[0]+' |\n\n';
+    }
   });
-  certGapPortfolios.forEach(function(p){
-    var g=gaps.find(function(x){return x.portfolio===p&&x.type==='careercert';})
-      ||gaps.find(function(x){return x.portfolio===p&&x.type==='blackbelt';});
+  // Direct careercert gaps still get their own section
+  certGapPortfoliosDirect.forEach(function(p){
+    var g=gaps.find(function(x){return x.portfolio===p&&x.type==='careercert';});
     if(!g)return;
-    var assocCands=formatEligible(allEmpNames);
-    var proCands=proEligible.length?formatEligible(proEligible):'(no employees with existing Professional cert)';
-    var proSection=proEligible.length
-      ?'LEVEL: Professional\n| [Real CCNP Exam Name] (CCNP-XXX) | 3 pts | Professional | — | '+p+' | '+proEligible[0]+'\n'
-      :'';
     outputTemplate+='** '+p+' Certification Plan (Target: '+g.gapPts.toFixed(1)+' pts)\n'
-      +'ELIGIBLE CANDIDATES (Associate): '+assocCands+'\n'
-      +(proEligible.length?'ELIGIBLE CANDIDATES (Professional): '+proCands+'\n':'')
+      +'ELIGIBLE CANDIDATES: '+formatEligible(allEmpNames)+'\n'
+      +(proEligible.length?'ELIGIBLE CANDIDATES (Professional): '+formatEligible(proEligible)+'\n':'')
       +'LEVEL: Associate\n'
-      +'| [Real CCNA Exam Name] (CCNA-XXX) | 1 pts | Associate | — | '+p+' | [AssigneeName] |\n'
-      +proSection
+      +'| [Real CCNA exam for '+p+'] | 1 pts | Associate | — | '+p+' | '+allEmpNames[0]+' |\n'
+      +(proEligible.length?'LEVEL: Professional\n| [Real CCNP exam for '+p+'] | 3 pts | Professional | — | '+p+' | '+proEligible[0]+' |\n':'')
       +'TOTAL CERT PTS NEEDED: '+g.gapPts.toFixed(1)+'\n\n';
   });
 
   // Remove Expert from cert reference entirely
+  // Pre-compute which portfolios have cert entries (for Pro cert template above)
+  var certRefNoExpertPortfolios=CP_CERTS.filter(function(c){return c['Level Name']!=='Expert'&&c['Level Name']!=='Co-Marketing';}).map(function(c){return c['Portfolio'];}).filter(function(p,i,a){return a.indexOf(p)===i;});
   var certRefNoExpert=CP_CERTS.filter(function(c){
     if(c['Level Name']==='Expert')return false;
     if(c['Level Name']==='Co-Marketing')return false; // not a technical cert
