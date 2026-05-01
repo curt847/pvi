@@ -524,10 +524,10 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
         <div id="cp-stage-pills" style="display:flex;gap:8px;flex-wrap:wrap;flex:1;align-items:center;"></div>
         <button onclick="cpProcessStaged()" id="cp-stage-btn" style="padding:8px 20px;border-radius:8px;border:none;cursor:pointer;background:var(--blue);color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:800;white-space:nowrap;">Process →</button>
       </div>
-      <div class="cp-gen-row" id="cp-gen-row" style="display:none">
-        <button class="cp-gen-btn" id="cp-gen-btn" onclick="cpGenerate()"><span>&#10022;</span> AI Cert Plan</button>
+      <div class="cp-gen-row" id="cp-gen-row">
+        <button class="cp-gen-btn" id="cp-gen-btn" onclick="cpGenerate()" style="background:linear-gradient(135deg,#d97706 0%,#b45309 100%);"><span>&#10022;</span> What-If Cert Plan</button>
         <button class="cp-gen-btn" id="cp-manual-btn" onclick="cpShowManualModal()" style="background:linear-gradient(135deg,#6d28d9 0%,#7c3aed 100%);"><span>&#9998;</span> Manual Plan Criteria</button>
-        <button class="cp-gen-btn" id="cp-freeform-btn" onclick="cpShowFreeformModal()" style="background:linear-gradient(135deg,#0f766e 0%,#0284c7 100%);"><span>&#128172;</span> Freeform Prompt</button>
+        <button class="cp-gen-btn" id="cp-freeform-btn" onclick="cpShowFreeformModal()" style="background:linear-gradient(135deg,#0284c7 0%,#0369a1 100%);"><span>&#128172;</span> Freeform Prompt</button>
         <div style="font-size:13px;color:var(--muted)" id="cp-gen-sub">AI will focus on satisfying your what-if PVI gap goals.</div>
       </div>
 
@@ -588,6 +588,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
           </div>
         </div>
       </div>
+      <div class="cp-ai-wrap" id="cp-ai-out">
         <div class="cp-ai-hdr">
           <span style="font-size:18px">&#10022;</span>
           <h3>PVI Certification Strategy</h3>
@@ -2704,10 +2705,14 @@ function cpRenderBBRoster(){
         +'</div>';
     }).join('');
     var ptCol=row.totalPts>=2?'#c4b5fd':row.totalPts>=1.5?'#a78bfa':'#7c3aed';
+    // Dominant portfolio = where employee has most BB points
+    var portTotals={};
+    row.comps.forEach(function(c){if(c.portfolio&&c.portfolio!=='null')portTotals[c.portfolio]=(portTotals[c.portfolio]||0)+c.multiplier;});
+    var dominantPort=Object.keys(portTotals).sort(function(a,b){return portTotals[b]-portTotals[a];})[0]||'—';
     tr.innerHTML='<td><div class="cp-name">'+row.emp.name+'</div><div class="cp-email">'+row.emp.email+'</div></td>'
       +'<td>'+html+'</td>'
       +'<td><span class="cp-pts" style="color:'+ptCol+'">'+row.totalPts.toFixed(1)+'</span></td>'
-      +'<td style="color:var(--muted);font-size:12px;">'+(row.comps[0]&&row.comps[0].portfolio||'—')+'</td>';
+      +'<td style="color:var(--muted);font-size:12px;">'+dominantPort+'</td>';
     tbody.appendChild(tr);
   });
 }
@@ -2829,7 +2834,7 @@ function cpRunFreeformPlan(){
   var out=document.getElementById('cp-ai-out');
   var body=document.getElementById('cp-ai-body');
   if(btn)btn.disabled=true;
-  out.classList.add('show');
+  if(out){out.classList.add('show');out.scrollIntoView({behavior:'smooth',block:'start'});}
   body.innerHTML='<div class="cp-plain">Interpreting your instructions…</div>';
 
   fetch('https://api.anthropic.com/v1/messages',{
@@ -2843,10 +2848,10 @@ function cpRunFreeformPlan(){
     body.innerHTML=cpFormatPlan(data.content[0].text);
     document.getElementById('cp-print-btn').style.display='';
     document.getElementById('cp-email-btn').style.display='';
-    if(btn){btn.disabled=false;btn.innerHTML='<span>&#10022;</span> AI Cert Plan';}
+    if(btn){btn.disabled=false;btn.innerHTML='<span>btn.innerHTML='<span>&#10022;</span> AI Cert Plan'#10022;</span> What-If Cert Plan';}
   }).catch(function(err){
     body.innerHTML='<div class="cp-plain">Error: '+err.message+'</div>';
-    if(btn){btn.disabled=false;btn.innerHTML='<span>&#10022;</span> AI Cert Plan';}
+    if(btn){btn.disabled=false;btn.innerHTML='<span>btn.innerHTML='<span>&#10022;</span> AI Cert Plan'#10022;</span> What-If Cert Plan';}
   });
 }
 
@@ -2917,8 +2922,47 @@ function cpRunManualPlan(){
     var bbPts=bbEmp?bbEmp.completions.reduce(function(s,c){return s+c.multiplier;},0):0;
     var bbByPort={};
     if(bbEmp){bbEmp.completions.forEach(function(c){if(!bbByPort[c.portfolio])bbByPort[c.portfolio]=0;bbByPort[c.portfolio]+=c.multiplier;});}
-    return{name:name,certPts:certPts,certsByPort:certsByPort,bbPts:bbPts,bbByPort:bbByPort};
+    // Primary architecture = highest BB pts portfolio (fall back to highest cert pts portfolio)
+    var primaryArch='None';
+    if(Object.keys(bbByPort).length){
+      primaryArch=Object.keys(bbByPort).sort(function(a,b){return bbByPort[b]-bbByPort[a];})[0];
+    } else if(Object.keys(certsByPort).length){
+      primaryArch=Object.keys(certsByPort).sort(function(a,b){return certsByPort[b]-certsByPort[a];})[0];
+    }
+    return{name:name,certPts:certPts,certsByPort:certsByPort,bbPts:bbPts,bbByPort:bbByPort,primaryArch:primaryArch};
   });
+
+  // Build per-portfolio assignment rules in JS — don't leave this to AI guessing
+  var allTargetPortfolios=[];
+  Object.keys(certTargets).forEach(function(p){if(certTargets[p]>0&&allTargetPortfolios.indexOf(p)<0)allTargetPortfolios.push(p);});
+  Object.keys(bbTargets).forEach(function(p){if(bbTargets[p]>0&&allTargetPortfolios.indexOf(p)<0)allTargetPortfolios.push(p);});
+
+  var assignmentRules=allTargetPortfolios.map(function(port){
+    // Who is primary for this portfolio?
+    var primaries=empSummary.filter(function(e){return e.primaryArch===port;});
+    var assignees,rule;
+    if(primaries.length>0){
+      // Sort primaries inversely by current pts in this portfolio (fewer pts = more assignments)
+      primaries.sort(function(a,b){
+        var aPts=(a.certsByPort[port]||0)+(a.bbByPort[port]||0);
+        var bPts=(b.certsByPort[port]||0)+(b.bbByPort[port]||0);
+        return aPts-bPts; // ascending = most assignments to lowest pts
+      });
+      assignees=primaries.map(function(e){
+        var pts=(e.certsByPort[port]||0)+(e.bbByPort[port]||0);
+        return e.name+' (primary, '+pts+' current pts in '+port+')';
+      });
+      rule='Primary employees assigned (all of them, inversely by current '+port+' pts)';
+    } else {
+      // No primary — use all focus employees inversely by total pts
+      var sorted=empSummary.slice().sort(function(a,b){return a.certPts+a.bbPts-(b.certPts+b.bbPts);});
+      assignees=sorted.map(function(e){
+        return e.name+' (no primary, '+(e.certPts+e.bbPts)+' total pts)';
+      });
+      rule='No primary employees for '+port+' — all employees assigned inversely by total pts (fewer total pts = more assignments)';
+    }
+    return '  '+port+': '+rule+'\n    Assignees in order (most→fewest assignments): '+assignees.join(', ');
+  }).join('\n\n');
 
   var certPortfolios=Object.keys(certTargets).filter(function(p){return certTargets[p]>0;});
   var _seen={};
@@ -2942,27 +2986,29 @@ function cpRunManualPlan(){
   Object.keys(bbTargets).forEach(function(p){if(bbTargets[p]>0)targLines.push(p+': +'+bbTargets[p]+' BB pts');});
 
   var empLines=empSummary.map(function(e){
-    var s=e.name+' (certPts:'+e.certPts;
-    if(Object.keys(e.certsByPort).length)s+=', byArch:'+JSON.stringify(e.certsByPort);
-    if(e.bbPts)s+=', bbPts:'+e.bbPts+', bbByArch:'+JSON.stringify(e.bbByPort);
-    return s+')';
+    var s=e.name+' | primary:'+e.primaryArch+' | certPts:'+e.certPts;
+    if(Object.keys(e.certsByPort).length)s+=' | certByArch:'+JSON.stringify(e.certsByPort);
+    if(e.bbPts)s+=' | bbPts:'+e.bbPts+' | bbByArch:'+JSON.stringify(e.bbByPort);
+    return s;
   }).join('\n');
 
   var prompt='You are a Cisco 360 Partner Program expert building a certification and Black Belt plan.\n\n'
-    +'TARGETS (points to add):\n'+targLines.join('\n')+'\n\n'
-    +'FOCUS EMPLOYEES:\n'+empLines+'\n\n'
-    +'ASSIGNMENT RULE: For each cert or BB training, assign it to ONE specific employee. '
-    +'Employees with fewer current points in that portfolio should receive more assignments. '
-    +'An employee with 0 pts gets roughly twice as many assignments as one with 10 pts.\n\n'
+    +'TARGETS:\n'+targLines.join('\n')+'\n\n'
+    +'EMPLOYEES (name | primary arch | current pts):\n'+empLines+'\n\n'
+    +'PRE-COMPUTED ASSIGNMENT RULES (follow exactly — do not override):\n'+assignmentRules+'\n\n'
+    +'INVERSE PROPORTIONAL RULE: Within each portfolio\'s assignee list, the person listed first gets the most assignments. '
+    +'If person A has 20 pts and person B has 10 pts, B gets twice as many items as A. '
+    +'Distribute items so the ratio of assignments reflects this inverse relationship.\n\n'
     +'CERT REFERENCE (ExamCode | Name | Level | Points | Portfolio):\n'+(certRef||'None')+'\n\n'
     +'BB REFERENCE (Title | Points | Stage | Portfolio):\n'+(bbRef||'None')+'\n\n'
     +'CRITICAL INSTRUCTIONS:\n'
-    +'- Each row MUST include the assigned employee name in the last column.\n'
-    +'- Do NOT include a summary paragraph or assignment breakdown text — only the pipe-delimited table rows.\n'
-    +'- Section headers must be exactly: ** [Portfolio] Certification Plan OR ** [Portfolio] Black Belt Plan\n'
-    +'- For BB: prefer Stage 3 (2pts) over Stage 2 (1.5pts) over Stage 1 (1pt) for efficiency.\n'
+    +'- Assign every row to exactly ONE employee (last pipe column).\n'
+    +'- Follow the PRE-COMPUTED ASSIGNMENT RULES above — do not reassign people to portfolios they are not listed under.\n'
+    +'- No summary text, no paragraphs, no assignment breakdowns — ONLY pipe-delimited rows.\n'
+    +'- For BB: prefer Stage 3 (2pts) > Stage 2 (1.5pts) > Stage 1 (1pt).\n'
     +'- For certs: prefer Expert (10pts) > Professional (3pts) > Associate (1pt).\n'
-    +'- Use EXACTLY this output format with no deviations:\n\n'
+    +'- Section headers: ** [Portfolio] Certification Plan  OR  ** [Portfolio] Black Belt Plan\n\n'
+    +'OUTPUT FORMAT (follow exactly):\n'
     +'** Networking Certification Plan\n'
     +'ELIGIBLE CANDIDATES: Name1, Name2\n'
     +'LEVEL: Professional\n'
@@ -2980,7 +3026,7 @@ function cpRunManualPlan(){
   var out=document.getElementById('cp-ai-out');
   var body=document.getElementById('cp-ai-body');
   if(btn)btn.disabled=true;
-  out.classList.add('show');
+  if(out){out.classList.add('show');out.scrollIntoView({behavior:'smooth',block:'start'});}
   body.innerHTML='<div class="cp-plain">Building your manual certification plan…</div>';
 
   fetch('https://api.anthropic.com/v1/messages',{
@@ -2997,7 +3043,7 @@ function cpRunManualPlan(){
     if(btn){btn.disabled=false;btn.innerHTML='<span>&#10022;</span> Regenerate Plan';}
   }).catch(function(err){
     body.innerHTML='<div class="cp-plain">Error: '+err.message+'</div>';
-    if(btn){btn.disabled=false;btn.innerHTML='<span>&#10022;</span> Generate Cert Plan';}
+    if(btn){btn.disabled=false;btn.innerHTML='<span>btn.innerHTML='<span>&#10022;</span> Generate Cert Plan'#10022;</span> What-If Cert Plan';}
   });
 }
 
