@@ -1919,6 +1919,79 @@ function cpLoadKey(){
 
 
 
+
+// ── STAGE PREREQUISITE ENFORCER ──────────────────────────────────────────────
+// Remove Stage 2 rows where Stage 1 isn't recommended (or already completed by that employee)
+// Remove Stage 3 rows where Stage 1 AND Stage 2 aren't both present
+function cpEnforceStagePrerequisites(rawText) {
+  var lines = rawText.split('\n');
+
+  // Pass 1: collect all recommended (trainee, track, stage) combos
+  // Track name = everything before " Stage N" suffix
+  var planned = {}; // key = assignee+'::'+trackBase -> Set of stages
+
+  lines.forEach(function(line) {
+    var t = line.trim();
+    if (t.indexOf('|') < 0) return;
+    var parts = t.replace(/^\||\|$/g,'').split('|').map(function(s){return s.trim();});
+    // Find pts index
+    var ptsIdx = -1;
+    for (var i=0;i<parts.length;i++){if(/^[\d.]+\s*pts?$/i.test(parts[i])){ptsIdx=i;break;}}
+    if (ptsIdx < 0) return;
+    var name = parts.slice(0,ptsIdx).join(' ').trim();
+    var assignee = parts[parts.length-1];
+    // Extract stage number from name
+    var stageMatch = name.match(/Stage\s*(\d)\s*$/i);
+    if (!stageMatch) return;
+    var stageNum = parseInt(stageMatch[1]);
+    var trackBase = name.replace(/\s*Stage\s*\d+\s*$/i,'').trim();
+    var key = assignee+'::'+trackBase;
+    if (!planned[key]) planned[key] = {};
+    planned[key][stageNum] = true;
+  });
+
+  // Also add stages already completed by employee (from bbEmployees)
+  // bbEmployees[name].completions[i].name / stage
+  Object.keys(bbEmployees).forEach(function(empName) {
+    var emp = bbEmployees[empName];
+    if (!emp || !emp.completions) return;
+    emp.completions.forEach(function(c) {
+      var stageMatch = c.name && c.name.match(/Stage\s*(\d)\s*$/i);
+      if (!stageMatch) return;
+      var stageNum = parseInt(stageMatch[1]);
+      var trackBase = c.name.replace(/\s*Stage\s*\d+\s*$/i,'').trim();
+      var key = empName+'::'+trackBase;
+      if (!planned[key]) planned[key] = {};
+      planned[key][stageNum] = true; // mark as available (already done)
+    });
+  });
+
+  // Pass 2: filter out rows that violate stage prerequisites
+  var result = lines.filter(function(line) {
+    var t = line.trim();
+    if (t.indexOf('|') < 0) return true; // keep non-row lines
+    var parts = t.replace(/^\||\|$/g,'').split('|').map(function(s){return s.trim();});
+    var ptsIdx = -1;
+    for (var i=0;i<parts.length;i++){if(/^[\d.]+\s*pts?$/i.test(parts[i])){ptsIdx=i;break;}}
+    if (ptsIdx < 0) return true;
+    var name = parts.slice(0,ptsIdx).join(' ').trim();
+    var assignee = parts[parts.length-1];
+    var stageMatch = name.match(/Stage\s*(\d)\s*$/i);
+    if (!stageMatch) return true; // no stage = keep
+    var stageNum = parseInt(stageMatch[1]);
+    if (stageNum <= 1) return true; // Stage 1 always OK
+    var trackBase = name.replace(/\s*Stage\s*\d+\s*$/i,'').trim();
+    var key = assignee+'::'+trackBase;
+    var stages = planned[key] || {};
+    // Check prerequisites
+    if (stageNum === 2 && !stages[1]) return false; // need Stage 1
+    if (stageNum === 3 && (!stages[1] || !stages[2])) return false; // need both
+    return true;
+  });
+
+  return result.join('\n');
+}
+
 // ── PORTFOLIO ACHIEVEMENT SUMMARY ────────────────────────────────────────────
 function cpBuildPortfolioSummary(filteredText, bbTargets, certTargets) {
   // Compute achieved totals from filtered plan text
@@ -2121,7 +2194,7 @@ function cpFormatPlan(raw){
     // Skip separator lines AND reasoning lines (no pipes = not a row)
     if(/^[-=#*\s]+$/.test(t)||/^\d+$/.test(t))return;
     // Skip any prose/reasoning line that doesn't start with a keyword and has no pipes
-    if(t.indexOf('|')<0&&!/^(ELIGIBLE|LEVEL:|TOTAL|RUNNING)/i.test(t))return;
+    if(t.indexOf('|')<0&&!/^(ELIGIBLE CANDIDATES|LEVEL:|TOTAL BB|TOTAL CERT)/i.test(t))return;
     if(!cur)cur={title:'',items:[],total:null,candidates:[],currentLevel:null,plain:[]};
     if(!cur.plain)cur.plain=[];
     cur.plain.push(t.replace(/\*\*/g,''));
@@ -2251,60 +2324,87 @@ async function cpGenerate(){
 
   var hasGaps=gaps.length>0,dpvLoaded=allRows.length>0;
 
-  // Build explicit per-gap output instructions
-  var gapInstructions='GAPS TO CLOSE (address EVERY one):\n';
+  // ── Compute eligible candidates ──────────────────────────────────────────────
+  // Pro Cert eligible: employees who already hold at least one Professional-level cert
+  var proEligible=Object.values(cpEmployees).filter(function(emp){
+    return emp.certs.some(function(c){return c.level==='Professional';});
+  }).map(function(emp){return emp.name;}).sort();
+
+  // BB eligible: anyone in bbEmployees (if BB file loaded), else same as proEligible
+  var bbLoaded=Object.keys(bbEmployees).length>0;
+  var bbEligibleAll=bbLoaded?Object.keys(bbEmployees).sort():proEligible.slice();
+  // All employees eligible for Associate certs
+  var allEmpNames=Object.keys(cpEmployees).sort();
+
+  function formatEligible(arr){
+    if(!arr.length)return'(none loaded)';
+    var shown=arr.slice(0,10).join(', ');
+    return arr.length>10?shown+', AND OTHERS':shown;
+  }
+
+  // Build employee pro cert status for prompt
+  var empProStatus=proEligible.length
+    ?'Employees who already hold a Professional-level cert (eligible for Professional cert recommendations):\n  '+proEligible.join(', ')
+    :'No employees currently hold a Professional-level cert.';
+
+  // Build gap instructions
+  var gapInstructions='GAPS TO CLOSE (address EVERY one — do NOT output reasoning, just rows):\n';
   gaps.forEach(function(g,i){
-    gapInstructions+=(i+1)+'. '+g.portfolio+' — '+(g.type==='blackbelt'?'Black Belt':'Career Cert')+' gap: +'+g.gapPts.toFixed(1)+' pts needed (Index '+g.fromIdx+' → '+g.toIdx+')\n';
+    gapInstructions+=(i+1)+'. '+g.portfolio+' — '+(g.type==='blackbelt'?'Black Belt':'Career Cert')+' gap: +'+g.gapPts.toFixed(1)+' pts needed\n';
   });
 
-  // Build the per-gap output template
+  // Build output template — clean, no leaking STOP comments
   var outputTemplate='';
   bbGapPortfolios.forEach(function(p){
     var g=gaps.find(function(x){return x.portfolio===p&&x.type==='blackbelt';});
-    outputTemplate+='** '+p+' Black Belt Plan\n'
-      +'ELIGIBLE CANDIDATES: name1, name2\n'
-      +'| Training Title | X pts | Stage N | Ymin | '+p+' | AssigneeName |\n'
-      +'| Cross-Arch Training | X pts | Stage N | Zmin | '+p+' + OtherPort | AssigneeName |\n'
-      +'... (STOP when running total >= '+g.gapPts.toFixed(1)+' pts)\n'
+    var bbCands=formatEligible(bbEligibleAll);
+    outputTemplate+='** '+p+' Black Belt Plan (Target: '+g.gapPts.toFixed(1)+' pts)\n'
+      +'ELIGIBLE CANDIDATES: '+bbCands+'\n'
+      +'| Training Title | X pts | Stage N | Ymin | [Portfolio(s)] | AssigneeName |\n'
       +'TOTAL BB PTS NEEDED: '+g.gapPts.toFixed(1)+'\n\n';
   });
   certGapPortfolios.forEach(function(p){
     var g=gaps.find(function(x){return x.portfolio===p&&x.type==='careercert';});
-    outputTemplate+='** '+p+' Certification Plan\n'
-      +'ELIGIBLE CANDIDATES: name1, name2\n'
+    var assocCands=formatEligible(allEmpNames);
+    var proCands=proEligible.length?formatEligible(proEligible):'(no employees with existing Professional cert)';
+    outputTemplate+='** '+p+' Certification Plan (Target: '+g.gapPts.toFixed(1)+' pts)\n'
+      +'ELIGIBLE CANDIDATES (Associate): '+assocCands+'\n'
+      +'ELIGIBLE CANDIDATES (Professional): '+proCands+'\n'
       +'LEVEL: Associate\n'
-      +'| Cert Name (Code) | 1 pts | Associate | — | '+p+' | AssigneeName |\n'
+      +'| Cert Name (Code) | 1 pts | Associate | — | [Portfolio] | AssigneeName |\n'
       +'LEVEL: Professional\n'
-      +'| Cert Name (Code) | 3 pts | Professional | — | '+p+' | AssigneeName |\n'
-      +'... (STOP when running total >= '+g.gapPts.toFixed(1)+' pts)\n'
+      +'| Cert Name (Code) | 3 pts | Professional | — | [Portfolio] | AssigneeName |\n'
       +'TOTAL CERT PTS NEEDED: '+g.gapPts.toFixed(1)+'\n\n';
   });
 
-  var prompt='You are a Cisco 360 Partner Program expert. Output ONLY the formatted certification plan — no reasoning, no analysis, no explanation, no preamble. Start your response directly with the first ** section header.\n\n'
-    +'SCORING: Associate=1pt | Professional=3pts | Expert=10pts\n'
-    +'BB REFERENCE FORMAT: Title | pts | duration | [portfolio(s)]\n'
-    +'Items marked [CROSS-ARCH: X + Y] count toward BOTH X and Y portfolios simultaneously.\n\n'
-    +gapInstructions
-    +(bbRef?'\nAVAILABLE BLACK BELT TRAININGS (sorted: cross-arch first, then shortest duration, then lowest stage):\n'+bbRef:'\nNO BB REFERENCE: Use your own knowledge of real Cisco Black Belt Partner Program trainings for the relevant portfolios. Stage 1=1pt, Stage 2=1.5pts, Stage 3=2pts.')
-    +(certRef?'\n\nAVAILABLE PVI CERTS (only for gap portfolios):\n'+certRef:'\n\nNO CERT REFERENCE: Use your own knowledge of real Cisco certifications (CCNA=1pt Associate, CCNP=3pts Professional, CCIE=10pts Expert) for the relevant portfolios.')
+  // Remove Expert from cert reference entirely
+  var certRefNoExpert=CP_CERTS.filter(function(c){
+    if(c['Level Name']==='Expert')return false;
+    if(certGapPortfolios.indexOf(c['Portfolio'])<0)return false;
+    return true;
+  }).map(function(c){return c['Exam Name']+' ('+c['Exam Code']+')|'+c['Multiplier']+' pts|'+c['Level Name'];}).join('\n');
+
+  var prompt='Output ONLY the pipe-delimited plan. No reasoning, no analysis, no prose. Every line must be: **Section Header, ELIGIBLE CANDIDATES:, LEVEL:, |pipe|row|, or TOTAL line.\n\n'
+    +gapInstructions+'\n'
+    +'CERT LEVEL RULES (critical — no exceptions):\n'
+    +'- NEVER recommend Expert-level certifications under any circumstances.\n'
+    +'- Associate-level certs: may be assigned to ANY employee.\n'
+    +'- Professional-level certs: ONLY assign to employees who already hold a Professional cert.\n'
+    +'  Professional-eligible employees: '+(proEligible.length?proEligible.join(', '):'none')+'\n'
+    +'- If no one is Professional-eligible, only use Associate-level certs.\n\n'
+    +'BB STAGE RULES:\n'
+    +'- Only recommend Stage 2 if Stage 1 of the same track is also in this plan.\n'
+    +'- Only recommend Stage 3 if Stage 1 AND Stage 2 of the same track are also in this plan.\n'
+    +'- Prefer Stage 1 for standalone trainings. No training >120min when shorter alternatives exist.\n\n'
+    +'BB PRIORITY: Cross-arch first → sequential stages → shortest duration → Stage 1 for standalones.\n'
+    +'CERT PRIORITY: Cross-arch first → Associate before Professional.\n'
+    +'CROSS-ARCH: [CROSS-ARCH] items count toward every listed portfolio. Stop a portfolio once its total >= target.\n\n'
+    +(bbRef?'BB REFERENCE:\n'+bbRef:'')
+    +(certRefNoExpert?'\n\nCERT REFERENCE (Associate and Professional only):\n'+certRefNoExpert:'')
     +'\n\nEMPLOYEE STATUS:\n'+JSON.stringify(empSummary,null,1)
-    +'\n\nBLACK BELT SELECTION PRIORITY:\n'
-    +'1. CROSS-ARCH FIRST: Strongly prefer trainings marked [CROSS-ARCH] — list them under every portfolio they satisfy.\n'
-    +'2. SEQUENTIAL TRACKS: Within a single track, include Stage 1 before Stage 2 before Stage 3 — building on prior learning.\n'
-    +'3. SHORTEST DURATION: Among equal-point options with no cross-arch/sequential advantage, pick the shortest. Avoid trainings over 120min when shorter alternatives exist.\n'
-    +'4. STAGE PREFERENCE: For standalone trainings, prefer Stage 1 unless cross-arch benefit justifies a higher stage.\n\n'
-    +'CERT SELECTION PRIORITY:\n'
-    +'1. CROSS-ARCH FIRST: Prefer certs that count toward multiple target portfolios.\n'
-    +'2. SHORTEST PATH: Prefer Associate-level unless Professional/Expert pts are needed to hit the target.\n\n'
-    +'ASSIGNMENT RULES:\n'
-    +'- HIT TARGET EXACTLY: Add rows one at a time, track running total. STOP the moment total >= required pts.\n'
-    +'- ASSIGN PER ROW: Every row must end with the ONE employee assigned.\n'
-    +'- INVERSE PROPORTIONAL: Employees with fewer current pts in that portfolio get more assignments.\n'
-    +'- Cross-arch items count toward each portfolio they cover.\n'
-    +'- For Professional Certs, group under LEVEL: Professional / LEVEL: Associate / LEVEL: Expert sub-headers.\n'
-    +'- ITEM FORMAT: Title | X pts | Stage N or Level | Duration | Architectures covered | Assignee Name\n\n'
-    +'OUTPUT FORMAT (one section per gap):\n\n'
-    +outputTemplate.trim();
+    +'\n\n'+empProStatus
+    +'\n\nASSIGNMENT: Every row ends with one assignee. Spread across employees inversely proportional to current pts.\n\n'
+    +'OUTPUT FORMAT:\n'+outputTemplate.trim();
 
   if(!dpvLoaded||!hasGaps){
     prompt='No what-if gaps set. Respond with one line only: No additional certifications required.';
@@ -2319,7 +2419,8 @@ async function cpGenerate(){
     });
     var data=await resp.json();
     if(data.error)throw new Error(data.error.type+': '+data.error.message);
-    body.innerHTML=cpFormatPlan(data.content[0].text);
+    var _wiBB={},_wiCert={};gaps.forEach(function(g){if(g.type==='blackbelt')_wiBB[g.portfolio]=g.gapPts;else _wiCert[g.portfolio]=g.gapPts;});var wiStageOk=cpEnforceStagePrerequisites(data.content[0].text);var wiFiltered=cpFilterByTargets(wiStageOk,_wiBB,_wiCert);
+    body.innerHTML=cpFormatPlan(wiFiltered);
     document.getElementById('cp-print-btn').style.display='';
     document.getElementById('cp-email-btn').style.display='';
   }catch(err){
@@ -3319,7 +3420,8 @@ function cpRunManualPlan(){
       messages:[{role:'user',content:prompt}]})
   }).then(function(r){return r.json();}).then(function(data){
     if(data.error)throw new Error(data.error.type+': '+data.error.message);
-    var filtered=cpFilterByTargets(data.content[0].text,bbTargets,certTargets);
+    var stageOk=cpEnforceStagePrerequisites(data.content[0].text);
+    var filtered=cpFilterByTargets(stageOk,bbTargets,certTargets);
     var summary=cpBuildPortfolioSummary(filtered,bbTargets,certTargets);
     body.innerHTML=summary+cpFormatPlan(filtered);
     document.getElementById('cp-print-btn').style.display='';
