@@ -349,9 +349,9 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 .cp-name{font-weight:700;font-size:15px;}
 .cp-email{color:var(--muted);font-size:13px;margin-top:2px;}
 .cp-badge{display:inline-block;padding:3px 8px;border-radius:4px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;margin:2px;white-space:nowrap;}
-.cp-badge.expert{background:rgba(245,158,11,.15);color:#f59e0b;border:1px solid rgba(245,158,11,.3);}
-.cp-badge.professional{background:rgba(4,159,217,.15);color:#049fd9;border:1px solid rgba(4,159,217,.3);}
-.cp-badge.associate{background:rgba(34,197,94,.12);color:#22c55e;border:1px solid rgba(34,197,94,.25);}
+.cp-badge.expert{background:#d97706;color:#fff;border:1px solid #b45309;}
+.cp-badge.professional{background:#0284c7;color:#fff;border:1px solid #0369a1;}
+.cp-badge.associate{background:#0ea5e9;color:#fff;border:1px solid #0284c7;}
 .cp-badge.other{background:rgba(100,116,139,.2);color:var(--muted);border:1px solid rgba(100,116,139,.3);}
 .cp-pts{font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:800;}
 .cp-gen-row{display:flex;align-items:center;gap:12px;margin-bottom:18px;}
@@ -526,7 +526,48 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
       </div>
       <div class="cp-gen-row" id="cp-gen-row" style="display:none">
         <button class="cp-gen-btn" id="cp-gen-btn" onclick="cpGenerate()"><span>&#10022;</span> Generate Cert Plan</button>
+        <button class="cp-gen-btn" id="cp-manual-btn" onclick="cpShowManualModal()" style="background:linear-gradient(135deg,#0369a1 0%,#7c3aed 100%);"><span>&#9998;</span> Manual Plan Criteria</button>
         <div style="font-size:13px;color:var(--muted)" id="cp-gen-sub">AI will focus on satisfying your what-if PVI gap goals.</div>
+      </div>
+
+      <!-- Manual Plan Modal -->
+      <div id="cp-manual-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);align-items:center;justify-content:center;">
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;width:min(760px,95vw);max-height:88vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,.5);">
+          <div style="padding:18px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+            <div style="font-size:16px;font-weight:800;">✏️ Manual Cert / BB Plan Criteria</div>
+            <button onclick="document.getElementById('cp-manual-modal').style.display='none'" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1;">✕</button>
+          </div>
+          <div style="padding:20px 24px;">
+            <!-- Pro Cert points per architecture -->
+            <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#0284c7;margin-bottom:10px;">📋 Pro Cert Points Needed — by Architecture</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px;" id="cp-manual-cert-inputs">
+              <div style="display:flex;align-items:center;gap:8px;"><label style="font-size:13px;flex:1;">Networking</label><input type="number" min="0" step="1" id="mp-cert-net" placeholder="0" style="width:70px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;text-align:right;"></div>
+              <div style="display:flex;align-items:center;gap:8px;"><label style="font-size:13px;flex:1;">Security</label><input type="number" min="0" step="1" id="mp-cert-sec" placeholder="0" style="width:70px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;text-align:right;"></div>
+              <div style="display:flex;align-items:center;gap:8px;"><label style="font-size:13px;flex:1;">Collaboration</label><input type="number" min="0" step="1" id="mp-cert-col" placeholder="0" style="width:70px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;text-align:right;"></div>
+              <div style="display:flex;align-items:center;gap:8px;"><label style="font-size:13px;flex:1;">Cloud + AI Infrastructure</label><input type="number" min="0" step="1" id="mp-cert-cl" placeholder="0" style="width:70px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;text-align:right;"></div>
+              <div style="display:flex;align-items:center;gap:8px;"><label style="font-size:13px;flex:1;">Services</label><input type="number" min="0" step="1" id="mp-cert-svc" placeholder="0" style="width:70px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;text-align:right;"></div>
+            </div>
+            <!-- BB points per architecture -->
+            <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#7c3aed;margin-bottom:10px;">🥋 Black Belt Points Needed — by Architecture</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px;">
+              <div style="display:flex;align-items:center;gap:8px;"><label style="font-size:13px;flex:1;">Networking</label><input type="number" min="0" step="0.5" id="mp-bb-net" placeholder="0" style="width:70px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;text-align:right;"></div>
+              <div style="display:flex;align-items:center;gap:8px;"><label style="font-size:13px;flex:1;">Security</label><input type="number" min="0" step="0.5" id="mp-bb-sec" placeholder="0" style="width:70px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;text-align:right;"></div>
+              <div style="display:flex;align-items:center;gap:8px;"><label style="font-size:13px;flex:1;">Collaboration</label><input type="number" min="0" step="0.5" id="mp-bb-col" placeholder="0" style="width:70px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;text-align:right;"></div>
+              <div style="display:flex;align-items:center;gap:8px;"><label style="font-size:13px;flex:1;">Cloud + AI Infrastructure</label><input type="number" min="0" step="0.5" id="mp-bb-cl" placeholder="0" style="width:70px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;text-align:right;"></div>
+              <div style="display:flex;align-items:center;gap:8px;"><label style="font-size:13px;flex:1;">Services</label><input type="number" min="0" step="0.5" id="mp-bb-svc" placeholder="0" style="width:70px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;text-align:right;"></div>
+            </div>
+            <!-- Focus users -->
+            <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:8px;">👥 Focus Users <span style="font-weight:400;font-style:italic;text-transform:none;letter-spacing:0;">(leave blank for all employees)</span></div>
+            <div id="mp-user-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:20px;min-height:36px;padding:8px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;"></div>
+            <select id="mp-user-add" onchange="cpManualAddUser(this)" style="width:100%;padding:7px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;margin-bottom:18px;">
+              <option value="">+ Add employee to focus list…</option>
+            </select>
+            <div style="display:flex;gap:10px;justify-content:flex-end;">
+              <button onclick="document.getElementById('cp-manual-modal').style.display='none'" style="padding:9px 20px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Cancel</button>
+              <button onclick="cpRunManualPlan()" style="padding:9px 24px;border-radius:8px;border:none;background:linear-gradient(135deg,#0284c7 0%,#7c3aed 100%);color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:800;cursor:pointer;">Generate Plan →</button>
+            </div>
+          </div>
+        </div>
       </div>
       <div class="cp-ai-wrap" id="cp-ai-out">
         <div class="cp-ai-hdr">
@@ -540,19 +581,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
         <div class="cp-ai-body" id="cp-ai-body"></div>
       </div>
       <div id="cp-roster" style="display:none">
-        <div class="cp-filters">
-          <select class="cp-filter-sel" id="cp-person-sel" onchange="cpRenderRoster()"><option value="">All employees</option></select>
-          <select class="cp-filter-sel" id="cp-port-sel" onchange="cpRenderRoster()">
-            <option value="">All portfolios</option><option>Networking</option><option>Security</option>
-            <option>Collaboration</option><option>Cloud + AI Infrastructure</option>
-          </select>
-          <select class="cp-filter-sel" id="cp-sort-sel" onchange="cpRenderRoster()">
-            <option value="">Sort: Default</option>
-            <option value="expiry">Sort: Expiring Soonest</option>
-            <option value="expired">Show: Expired Only</option>
-            <option value="points">Sort: PVI Points (High-Low)</option>
-          </select>
-        </div>
         <div id="cp-arch-stats" style="display:none;background:rgba(4,159,217,.06);border:1px solid rgba(4,159,217,.2);border-radius:10px;padding:14px 18px;margin-bottom:14px;">
           <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:12px;" id="cp-arch-stats-title">Portfolio Cert Summary</div>
           <!-- PXP Official row -->
@@ -560,22 +588,22 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
           <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:center;padding-bottom:12px;border-bottom:1px solid var(--border);margin-bottom:12px;">
             <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;">Expert</div><div style="font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:800;color:#f59e0b;line-height:1;" id="cp-as-pxp-expert">—</div><div style="font-size:11px;color:var(--muted);">10 pts each</div></div>
             <div style="width:1px;height:50px;background:var(--border);"></div>
-            <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;">Professional</div><div style="font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:800;color:#a78bfa;line-height:1;" id="cp-as-pxp-prof">—</div><div style="font-size:11px;color:var(--muted);">3 pts each</div></div>
+            <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;">Professional</div><div style="font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:800;color:#0284c7;line-height:1;" id="cp-as-pxp-prof">—</div><div style="font-size:11px;color:var(--muted);">3 pts each</div></div>
             <div style="width:1px;height:50px;background:var(--border);"></div>
-            <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;">Associate</div><div style="font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:800;color:#22c55e;line-height:1;" id="cp-as-pxp-assoc">—</div><div style="font-size:11px;color:var(--muted);">1 pt each</div></div>
+            <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;">Associate</div><div style="font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:800;color:#0ea5e9;line-height:1;" id="cp-as-pxp-assoc">—</div><div style="font-size:11px;color:var(--muted);">1 pt each</div></div>
             <div style="width:1px;height:50px;background:var(--border);"></div>
-            <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;">Total PVI Pts</div><div style="font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:800;color:#fb923c;line-height:1;" id="cp-as-pxp-pts">—</div><div style="font-size:11px;color:var(--muted);">career cert score</div></div>
+            <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;">Total PVI Pts</div><div style="font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:800;color:#f59e0b;line-height:1;" id="cp-as-pxp-pts">—</div><div style="font-size:11px;color:var(--muted);">career cert score</div></div>
           </div>
           <!-- Personnel report row -->
           <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:6px;">&#8942; Calculated (from personnel report)</div>
           <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:center;">
             <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;">Expert</div><div style="font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:800;color:#f59e0b;line-height:1;opacity:.7;" id="cp-as-expert">—</div></div>
             <div style="width:1px;height:36px;background:var(--border);"></div>
-            <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;">Professional</div><div style="font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:800;color:#a78bfa;line-height:1;opacity:.7;" id="cp-as-prof">—</div></div>
+            <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;">Professional</div><div style="font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:800;color:#0284c7;line-height:1;opacity:.7;" id="cp-as-prof">—</div></div>
             <div style="width:1px;height:36px;background:var(--border);"></div>
-            <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;">Associate</div><div style="font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:800;color:#22c55e;line-height:1;opacity:.7;" id="cp-as-assoc">—</div></div>
+            <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;">Associate</div><div style="font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:800;color:#0ea5e9;line-height:1;opacity:.7;" id="cp-as-assoc">—</div></div>
             <div style="width:1px;height:36px;background:var(--border);"></div>
-            <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;">Total PVI Pts</div><div style="font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:800;color:#fb923c;line-height:1;opacity:.7;" id="cp-as-pts">—</div></div>
+            <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;">Total PVI Pts</div><div style="font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:800;color:#f59e0b;line-height:1;opacity:.7;" id="cp-as-pts">—</div></div>
           </div>
         </div>
         <div class="cp-tbl-wrap">
@@ -611,13 +639,13 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
             <div id="cp-cert-stats-bar" style="display:none;gap:12px;flex-wrap:wrap;margin:14px 14px 0;padding:14px 16px;background:rgba(4,159,217,.06);border:1px solid rgba(4,159,217,.2);border-radius:10px;">
               <div><div style="font-size:10px;font-weight:800;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;">Employees</div><div style="font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:800;color:#049fd9;line-height:1;" id="cs-total">—</div><div style="font-size:11px;color:var(--muted);">with cert records</div></div>
               <div style="width:1px;background:var(--border);"></div>
-              <div><div style="font-size:10px;font-weight:800;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;">Expert (CCIE/CCDE)</div><div style="font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:800;color:#f59e0b;line-height:1;" id="cs-expert">—</div><div style="font-size:11px;color:var(--muted);">10 pts each</div></div>
+              <div><div style="font-size:10px;font-weight:800;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;">Expert (CCIE/CCDE)</div><div style="font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:800;color:#d97706;line-height:1;" id="cs-expert">—</div><div style="font-size:11px;color:var(--muted);">10 pts each</div></div>
               <div style="width:1px;background:var(--border);"></div>
-              <div><div style="font-size:10px;font-weight:800;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;">Professional (CCNP)</div><div style="font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:800;color:#a78bfa;line-height:1;" id="cs-prof">—</div><div style="font-size:11px;color:var(--muted);">3 pts each</div></div>
+              <div><div style="font-size:10px;font-weight:800;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;">Professional (CCNP)</div><div style="font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:800;color:#0284c7;line-height:1;" id="cs-prof">—</div><div style="font-size:11px;color:var(--muted);">3 pts each</div></div>
               <div style="width:1px;background:var(--border);"></div>
-              <div><div style="font-size:10px;font-weight:800;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;">Associate (CCNA)</div><div style="font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:800;color:#22c55e;line-height:1;" id="cs-assoc">—</div><div style="font-size:11px;color:var(--muted);">1 pt each</div></div>
+              <div><div style="font-size:10px;font-weight:800;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;">Associate (CCNA)</div><div style="font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:800;color:#0ea5e9;line-height:1;" id="cs-assoc">—</div><div style="font-size:11px;color:var(--muted);">1 pt each</div></div>
               <div style="width:1px;background:var(--border);"></div>
-              <div><div style="font-size:10px;font-weight:800;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;">Total PVI Pts</div><div style="font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:800;color:#fb923c;line-height:1;" id="cs-pts">—</div><div style="font-size:11px;color:var(--muted);">career cert score</div></div>
+              <div><div style="font-size:10px;font-weight:800;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;">Total PVI Pts</div><div style="font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:800;color:#f59e0b;line-height:1;" id="cs-pts">—</div><div style="font-size:11px;color:var(--muted);">career cert score</div></div>
               <div style="width:1px;background:var(--border);"></div>
               <div><div style="font-size:10px;font-weight:800;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;">Expiring &lt;6mo</div><div style="font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:800;color:#ef4444;line-height:1;" id="cs-exp">—</div><div style="font-size:11px;color:var(--muted);">need renewal</div></div>
             </div>
@@ -673,7 +701,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
                 <div style="width:1px;background:var(--border);"></div>
                 <div><div style="font-size:10px;font-weight:800;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;">Stage 1 (1× pts)</div><div style="font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:800;color:#7c3aed;line-height:1;" id="cp-bb-stat-s1">—</div></div>
                 <div style="width:1px;background:var(--border);"></div>
-                <div><div style="font-size:10px;font-weight:800;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;">Total BB Points</div><div style="font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:800;color:var(--blue2);line-height:1;" id="cp-bb-stat-pts">—</div></div>
+                <div><div style="font-size:10px;font-weight:800;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;">Total BB Points</div><div style="font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:800;color:#f59e0b;line-height:1;" id="cp-bb-stat-pts">—</div></div>
               </div>
               <div class="cp-tbl-scroll" style="margin-top:14px;">
                 <table class="cp-tbl">
@@ -2229,8 +2257,8 @@ function cpPrintRoster(){
     +'td{padding:10px 12px;border-bottom:1px solid #f1f5f9;vertical-align:top;}'
     +'.cp-badge{display:inline-block;padding:2px 7px;border-radius:4px;font-family:monospace;font-size:11px;font-weight:700;margin:2px;white-space:nowrap;}'
     +'.expert{background:rgba(245,158,11,.15);color:#d97706;border:1px solid rgba(245,158,11,.3);}'
-    +'.professional{background:rgba(4,159,217,.15);color:#0369a1;border:1px solid rgba(4,159,217,.3);}'
-    +'.associate{background:rgba(34,197,94,.12);color:#15803d;border:1px solid rgba(34,197,94,.25);}'
+    +'.professional{background:rgba(2,132,199,.15);color:#0284c7;border:1px solid rgba(2,132,199,.3);}'
+    +'.associate{background:rgba(4,159,217,.08);color:#0369a1;border:1px solid rgba(4,159,217,.2);}'
     +'.other{background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;}'
     +'@media print{button{display:none!important}body{padding:16px 22px;}}';
   // Grab live stat values from the DOM
@@ -2560,6 +2588,29 @@ function cpHandleBBData(rows){
   return true;
 }
 
+function cpSetView(view){
+  var certPanel=document.getElementById('cp-view-certs-panel');
+  var bbPanel=document.getElementById('cp-view-bb-panel');
+  var certBtn=document.getElementById('cp-view-certs');
+  var bbBtn=document.getElementById('cp-view-bb');
+  var printCert=document.getElementById('cp-print-cert-btn');
+  var printBB=document.getElementById('cp-print-bb-btn');
+  if(!certPanel||!bbPanel)return;
+  if(view==='certs'){
+    certPanel.style.display='';bbPanel.style.display='none';
+    certBtn.style.background='var(--blue)';certBtn.style.color='#fff';
+    bbBtn.style.background='transparent';bbBtn.style.color='var(--muted)';
+    if(printCert)printCert.style.display='';
+    if(printBB)printBB.style.display='none';
+  } else {
+    certPanel.style.display='none';bbPanel.style.display='';
+    bbBtn.style.background='#a78bfa';bbBtn.style.color='#fff';
+    certBtn.style.background='transparent';certBtn.style.color='var(--muted)';
+    if(printCert)printCert.style.display='none';
+    if(printBB)printBB.style.display='';
+  }
+}
+
 function cpRenderBBRoster(){
   var empF=((document.getElementById('cp-bb-emp-sel')||{}).value)||'';
   var portF=((document.getElementById('cp-bb-port-sel')||{}).value)||'';
@@ -2593,7 +2644,7 @@ function cpRenderBBRoster(){
   });
   if(sortF==='pts_desc')rows.sort(function(a,b){return b.totalPts-a.totalPts;});
   else if(sortF==='pts_asc')rows.sort(function(a,b){return a.totalPts-b.totalPts;});
-  else if(sortF==='name')rows.sort(function(a,b){return a.emp.name.localeCompare(b.emp.name);});
+  else rows.sort(function(a,b){return a.emp.name.localeCompare(b.emp.name);}); // default: name A→Z
   var statEmp=rows.length,statS3=0,statS2=0,statS1=0,statPts=0;
   rows.forEach(function(r){r.comps.forEach(function(c){
     if(c.stage==='Stage 3')statS3++;else if(c.stage==='Stage 2')statS2++;else statS1++;
@@ -2659,8 +2710,11 @@ function cpPrintBBRoster(){
       +'<td>'+certsHTML+'</td><td style="text-align:center;font-family:monospace;font-size:16px;font-weight:800;color:#7c3aed;">'+pts+'</td>'
       +'<td style="font-size:12px;color:#64748b;">'+port+'</td></tr>';
   });
+  var filterBadges=filters?filters.split(' · ').map(function(f){
+    return '<span style="display:inline-block;margin-left:10px;padding:3px 12px;border-radius:20px;font-size:13px;font-weight:700;background:#ede9fe;border:1px solid #c4b5fd;color:#5b21b6;vertical-align:middle;">'+f+'</span>';
+  }).join(''):'';
   var styl='body{font-family:"Segoe UI",sans-serif;margin:0;padding:32px 40px;font-size:13px;background:#fff;color:#111;}'
-    +'h1{color:#7c3aed;font-size:20px;margin:0 0 3px;font-weight:800;}'
+    +'h1{color:#7c3aed;font-size:22px;margin:0 0 3px;font-weight:800;line-height:1.3;}'
     +'.meta{color:#666;font-size:12px;padding-bottom:14px;border-bottom:3px solid #7c3aed;margin-bottom:20px;}'
     +'table{width:100%;border-collapse:collapse;font-size:13px;}'
     +'th{background:#f5f3ff;padding:9px 12px;text-align:left;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#4c1d95;border-bottom:2px solid #ddd6fe;}'
@@ -2668,13 +2722,161 @@ function cpPrintBBRoster(){
     +'@media print{button{display:none!important}body{padding:16px 22px;}}';
   var pw=window.open('','_blank','width=1100,height=800');
   pw.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Black Belt Roster</title><style>'+styl+'</style></head><body>'
-    +'<h1>🥋 Black Belt Roster</h1>'
-    +'<div class="meta"><strong>'+(partnerName||'Cert Planner')+'</strong> &nbsp;·&nbsp; Generated: '+today+(filters?' &nbsp;·&nbsp; Filtered: <strong>'+filters+'</strong>':'')+'</div>'
+    +'<h1>🥋 Black Belt Roster'+filterBadges+'</h1>'
+    +'<div class="meta"><strong>'+(partnerName||'Cert Planner')+'</strong> &nbsp;·&nbsp; Generated: '+today+'</div>'
     +summaryBoxes
     +'<table><thead><tr><th>Employee</th><th>Black Belt Certifications</th><th>BB Points</th><th>Portfolio</th></tr></thead><tbody>'+tableRows+'</tbody></table>'
     +'<br><button onclick="window.print()" style="background:#7c3aed;color:#fff;border:none;padding:9px 20px;font-size:13px;font-weight:700;border-radius:6px;cursor:pointer;margin-top:16px;">Print / Save as PDF</button>'
     +'</body></html>');
   pw.document.close();
+}
+
+// ── MANUAL CERT / BB PLAN ────────────────────────────────────────────────────
+var _mpFocusUsers=[];
+
+function cpShowManualModal(){
+  var modal=document.getElementById('cp-manual-modal');
+  if(!modal)return;
+  var sel=document.getElementById('mp-user-add');
+  if(sel){
+    sel.innerHTML='<option value="">+ Add employee to focus list…</option>';
+    var names=Object.keys(cpEmployees).slice();
+    Object.keys(bbEmployees).forEach(function(n){if(names.indexOf(n)<0)names.push(n);});
+    names.sort().forEach(function(n){var o=document.createElement('option');o.value=n;o.textContent=n;sel.appendChild(o);});
+  }
+  _mpFocusUsers=[];
+  cpManualRenderUsers();
+  modal.style.display='flex';
+}
+
+function cpManualAddUser(sel){
+  var n=sel.value;if(!n)return;
+  if(_mpFocusUsers.indexOf(n)<0)_mpFocusUsers.push(n);
+  sel.value='';cpManualRenderUsers();
+}
+
+function cpManualRenderUsers(){
+  var c=document.getElementById('mp-user-list');if(!c)return;
+  if(!_mpFocusUsers.length){c.innerHTML='<span style="font-size:12px;color:var(--muted);padding:4px;">All employees</span>';return;}
+  c.innerHTML=_mpFocusUsers.map(function(n,i){
+    return'<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;background:rgba(4,159,217,.12);border:1px solid rgba(4,159,217,.3);border-radius:20px;font-size:12px;font-weight:700;color:#049fd9;">'
+      +n+'<button onclick="_mpFocusUsers.splice('+i+',1);cpManualRenderUsers();" style="background:none;border:none;color:#049fd9;cursor:pointer;font-size:13px;line-height:1;padding:0;">×</button></span>';
+  }).join('');
+}
+
+function cpRunManualPlan(){
+  var apiKey=(document.getElementById('cp-api-key').value||'').replace(/[^\x20-\x7E]/g,'').trim();
+  if(!apiKey){alert('Please paste your Anthropic API key into the API Key field first.');return;}
+  var certTargets={
+    'Networking':parseFloat(document.getElementById('mp-cert-net').value)||0,
+    'Security':parseFloat(document.getElementById('mp-cert-sec').value)||0,
+    'Collaboration':parseFloat(document.getElementById('mp-cert-col').value)||0,
+    'Cloud + AI Infrastructure':parseFloat(document.getElementById('mp-cert-cl').value)||0,
+    'Services':parseFloat(document.getElementById('mp-cert-svc').value)||0
+  };
+  var bbTargets={
+    'Networking':parseFloat(document.getElementById('mp-bb-net').value)||0,
+    'Security':parseFloat(document.getElementById('mp-bb-sec').value)||0,
+    'Collaboration':parseFloat(document.getElementById('mp-bb-col').value)||0,
+    'Cloud + AI Infrastructure':parseFloat(document.getElementById('mp-bb-cl').value)||0,
+    'Services':parseFloat(document.getElementById('mp-bb-svc').value)||0
+  };
+  var hasCert=Object.values(certTargets).some(function(v){return v>0;});
+  var hasBB=Object.values(bbTargets).some(function(v){return v>0;});
+  if(!hasCert&&!hasBB){alert('Please enter at least one point target.');return;}
+
+  var allNames=Object.keys(cpEmployees).slice();
+  Object.keys(bbEmployees).forEach(function(n){if(allNames.indexOf(n)<0)allNames.push(n);});
+  var focusNames=_mpFocusUsers.length?_mpFocusUsers:allNames;
+
+  var empSummary=focusNames.map(function(name){
+    var emp=cpEmployees[name];
+    var bbEmp=bbEmployees[name];
+    var certPts=emp?emp.certs.filter(function(c){return c.isPVI;}).reduce(function(s,c){return s+c.points;},0):0;
+    var certsByPort={};
+    if(emp){emp.certs.filter(function(c){return c.isPVI;}).forEach(function(c){if(!certsByPort[c.portfolio])certsByPort[c.portfolio]=0;certsByPort[c.portfolio]+=c.points;});}
+    var bbPts=bbEmp?bbEmp.completions.reduce(function(s,c){return s+c.multiplier;},0):0;
+    var bbByPort={};
+    if(bbEmp){bbEmp.completions.forEach(function(c){if(!bbByPort[c.portfolio])bbByPort[c.portfolio]=0;bbByPort[c.portfolio]+=c.multiplier;});}
+    return{name:name,certPts:certPts,certsByPort:certsByPort,bbPts:bbPts,bbByPort:bbByPort};
+  });
+
+  var certPortfolios=Object.keys(certTargets).filter(function(p){return certTargets[p]>0;});
+  var _seen={};
+  var certRef=CP_CERTS.filter(function(c){
+    if(!['Associate','Professional','Expert'].includes(c['Level Name']))return false;
+    if(certPortfolios.indexOf(c['Portfolio'])<0)return false;
+    var k=c['Exam Code']+'|'+c['Portfolio'];if(_seen[k])return false;_seen[k]=true;return true;
+  }).map(function(c){return c['Exam Code']+' | '+c['Exam Name']+' | '+c['Level Name']+' | '+c['Multiplier']+'pts | '+c['Portfolio'];}).join('\n');
+
+  var bbPortfolios=Object.keys(bbTargets).filter(function(p){return bbTargets[p]>0;});
+  var _seenBB={};
+  var bbRef=CP_BB.filter(function(b){
+    if(bbPortfolios.indexOf(b['PXP Portfolio'])<0)return false;
+    var k=b['LM_TITLE']+'|'+b['PXP Portfolio'];if(_seenBB[k])return false;_seenBB[k]=true;return true;
+  }).slice(0,120).map(function(b){
+    return b['LM_TITLE']+' | '+b['PVI Mulitiplier']+'pts | '+b['STAGE']+' | '+b['PXP Portfolio']+(b['CrossArch']?' [CROSS-ARCH]':'');
+  }).join('\n');
+
+  var targLines=[];
+  Object.keys(certTargets).forEach(function(p){if(certTargets[p]>0)targLines.push(p+': +'+certTargets[p]+' cert pts');});
+  Object.keys(bbTargets).forEach(function(p){if(bbTargets[p]>0)targLines.push(p+': +'+bbTargets[p]+' BB pts');});
+
+  var empLines=empSummary.map(function(e){
+    var s=e.name+' (certPts:'+e.certPts;
+    if(Object.keys(e.certsByPort).length)s+=', byArch:'+JSON.stringify(e.certsByPort);
+    if(e.bbPts)s+=', bbPts:'+e.bbPts+', bbByArch:'+JSON.stringify(e.bbByPort);
+    return s+')';
+  }).join('\n');
+
+  var prompt='You are a Cisco 360 Partner Program expert building a certification and Black Belt plan.\n\n'
+    +'TARGETS (points to add):\n'+targLines.join('\n')+'\n\n'
+    +'FOCUS EMPLOYEES:\n'+empLines+'\n\n'
+    +'ASSIGNMENT RULE: Distribute proportionally inverse to current points. '
+    +'Employee with 0 pts gets ~2× the assignments of one with 10 pts. '
+    +'An employee with MORE current points in a portfolio should receive FEWER assignments for that portfolio.\n\n'
+    +'CERT REFERENCE (ExamCode | Name | Level | Points | Portfolio):\n'+(certRef||'None')+'\n\n'
+    +'BB REFERENCE (Title | Points | Stage | Portfolio | CrossArch?):\n'+(bbRef||'None')+'\n\n'
+    +'INSTRUCTIONS:\n'
+    +'- Pick the most efficient certs/BB trainings to reach each target with fewest total assignments.\n'
+    +'- For BB: prefer shorter Duration, higher Stage multiplier, cross-arch when multiple portfolios need coverage.\n'
+    +'- For certs: prefer higher point values (Expert > Professional > Associate) for efficiency.\n'
+    +'- Assign specific employees to each item based on the inverse-proportional rule.\n'
+    +'- Use EXACTLY this output format:\n\n'
+    +'** [Portfolio] — Certification Plan\n'
+    +'ELIGIBLE CANDIDATES: Name1, Name2\n'
+    +'LEVEL: Professional\n'
+    +'| Cert Name | X pts |\n'
+    +'TOTAL CERT PTS NEEDED: Y\n\n'
+    +'** [Portfolio] — Black Belt Plan\n'
+    +'ELIGIBLE CANDIDATES: Name1, Name2\n'
+    +'| BB Training Name | X pts | Stage N |\n'
+    +'TOTAL BB PTS NEEDED: Y\n';
+
+  document.getElementById('cp-manual-modal').style.display='none';
+  var btn=document.getElementById('cp-gen-btn');
+  var out=document.getElementById('cp-ai-out');
+  var body=document.getElementById('cp-ai-body');
+  if(btn)btn.disabled=true;
+  out.classList.add('show');
+  body.innerHTML='<div class="cp-plain">Building your manual certification plan…</div>';
+
+  fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:3000,
+      system:'You are a Cisco 360 Partner Program expert. Output ONLY the pipe-delimited plan. No reasoning or explanation. Begin directly with the first ** header.',
+      messages:[{role:'user',content:prompt}]})
+  }).then(function(r){return r.json();}).then(function(data){
+    if(data.error)throw new Error(data.error.type+': '+data.error.message);
+    body.innerHTML=cpFormatPlan(data.content[0].text);
+    document.getElementById('cp-print-btn').style.display='';
+    document.getElementById('cp-email-btn').style.display='';
+    if(btn){btn.disabled=false;btn.innerHTML='<span>&#10022;</span> Regenerate Plan';}
+  }).catch(function(err){
+    body.innerHTML='<div class="cp-plain">Error: '+err.message+'</div>';
+    if(btn){btn.disabled=false;btn.innerHTML='<span>&#10022;</span> Generate Cert Plan';}
+  });
 }
 
 cpLoadKey();
