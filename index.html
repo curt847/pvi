@@ -2043,14 +2043,18 @@ function cpFormatPlan(raw){
     });
     if(sec.total){
       var isBB=/black.?belt/i.test(sec.title);
-      var label=isBB?'TOTAL BB POINTS NEEDED:':'TOTAL CERT POINTS NEEDED:';
-      var totalColor=isBB?'#a78bfa':'var(--blue)';
-      var totalScoreColor=isBB?'#7c3aed':'var(--blue2)';
-      // Extract just the number from "TOTAL BB PTS NEEDED: 10" or "TOTAL CERT POINTS NEEDED: 6"
+      var label=isBB?'TOTAL BB PTS NEEDED:':'TOTAL CERT PTS NEEDED:';
+      // Extract just the number
       var m=sec.total.match(/([\d.]+)\s*\/\s*([\d.]+)/);
       var scoreStr=m?m[2]:sec.total.replace(/^TOTAL[^:]+:\s*/i,'').trim();
       if(!scoreStr||scoreStr===sec.total)scoreStr=sec.total.match(/([\d.]+)/)?sec.total.match(/([\d.]+)/)[1]:'?';
-      o+='<div class="cp-total-big"><span class="cp-total-big-label" style="color:'+totalColor+'">'+label+'</span><span class="cp-total-big-score" style="color:'+totalScoreColor+'">'+scoreStr+'</span></div>';
+      // BB = solid purple pill, Cert = solid blue pill — both distinct from amber What-if
+      var pillBg=isBB?'#7c3aed':'#0284c7';
+      var pillBorder=isBB?'#6d28d9':'#0369a1';
+      o+='<div class="cp-total-big">'\
+        +'<span class="cp-total-big-label" style="color:'+(isBB?'#c4b5fd':'var(--blue2)')+'">'+label+'</span>'\
+        +'<span style="font-family:\'JetBrains Mono\',monospace;font-size:22px;font-weight:800;background:'+pillBg+';border:2px solid '+pillBorder+';color:#fff;padding:2px 16px;border-radius:12px;line-height:1.4;">+'+scoreStr+'</span>'\
+        +'</div>';
     }
     return o+'</div>';
   }).join('');
@@ -3112,35 +3116,33 @@ function cpRunManualPlan(){
 
   // Build ELIGIBLE CANDIDATES string from focus list
   var eligibleStr=focusUsers.map(function(u){return u.name+' ('+u.role+')';}).join(', ');
-  // Determine scope — only include cert/BB sections that have targets > 0
-  var hasCertTargets=Object.values(certTargets).some(function(v){return v>0;});
-  var hasBBTargets=Object.values(bbTargets).some(function(v){return v>0;});
-  var prompt='You are a Cisco 360 Partner Program expert. Build a plan that meets EXACTLY the requested points — no more, no less.\n\n'
-    +'MANDATORY RULES:\n'
-    +'1. ELIGIBLE CANDIDATES in EVERY section MUST list ALL of these people: '+eligibleStr+'\n'
-    +'2. Distribute rows across ALL eligible employees — do NOT assign everything to one person.\n'
-    +'3. ROLE MATCHING IS STRICT: Sales employees (marked Sales) ONLY get Sales-track or neutral trainings. Technical employees ONLY get Technical-track or neutral trainings.\n'
-    +'4. Every single output row MUST end with the assignee name — never omit it.\n'
-    +'5. Running total rule: add rows one at a time, track cumulative pts. STOP the instant cumulative >= target. Do NOT add another row even if it is only 0.5 pts over.\n'
-    +'6. Output ONLY pipe-delimited rows and section headers. No prose, no explanation, no preamble.\n'
-    +'7. If both BB and Cert targets exist for a portfolio, output BB Plan first, then Cert Plan for that portfolio.\n'
-    +'8. CROSS-ARCH: Strongly prefer trainings that count toward multiple target portfolios simultaneously — list them under each portfolio they satisfy.\n\n'
-    +'TARGETS:\n'+targLines.join('\n')+'\n\n'
-    +'EMPLOYEES:\n'+empLines+'\n\n'
-    +'CERT REFERENCE:\n'+(certRef||'Use real Cisco certs: CCNA=1pt (Associate), CCNP=3pts (Professional), CCIE=10pts (Expert). ONLY include certs for the portfolio listed in TARGETS.')+'\n\n'
-    +'BB REFERENCE:\n'+(bbRef||'Use real Cisco Black Belt trainings relevant to the target portfolios. Stage 1=1pt, Stage 2=1.5pts, Stage 3=2pts. Look for trainings labeled [CROSS-ARCH] first.')+'\n\n'
-    +'ROW FORMAT: | Training or Cert Name | X pts | Stage N or Level | Duration or — | Portfolio(s) | AssigneeName |\n\n'
-    +'OUTPUT FORMAT EXAMPLE:\n'
+  var salesNames=focusUsers.filter(function(u){return u.role==='Sales';}).map(function(u){return u.name;});
+  var techNames=focusUsers.filter(function(u){return u.role==='Technical';}).map(function(u){return u.name;});
+  var exampleSales=salesNames.length?salesNames[0]:focusUsers[0].name;
+  var exampleTech=techNames.length?techNames[0]:focusUsers[focusUsers.length-1].name;
+  var prompt='You are a Cisco 360 Partner Program expert. Output ONLY pipe-delimited plan rows and section headers — absolutely no prose, reasoning, or preamble.\n\n'
+    +'TARGETS (hit each EXACTLY — stop adding rows the instant cumulative pts >= target):\n'+targLines.join('\n')+'\n\n'
+    +'EMPLOYEES (ALL must appear in ELIGIBLE CANDIDATES):\n'+empLines+'\n\n'
+    +'RULES:\n'
+    +'- Every row must end with the assignee name.\n'
+    +'- Sales employees only receive Sales-track or neutral trainings. Technical employees only receive Technical-track or neutral trainings.\n'
+    +'- Spread assignments across ALL employees — do not assign everything to one person.\n'
+    +'- Prefer CROSS-ARCH trainings that satisfy multiple portfolios simultaneously.\n'
+    +'- STOP adding rows the instant the running total meets or exceeds the target.\n\n'
+    +'CERT REFERENCE:\n'+(certRef||'Use real Cisco certs: CCNA=1pt (Associate), CCNP=3pts (Professional), CCIE=10pts (Expert).')+'\n\n'
+    +'BB REFERENCE:\n'+(bbRef||'Use real Cisco Black Belt trainings. Stage 1=1pt, Stage 2=1.5pts, Stage 3=2pts.')+'\n\n'
+    +'ROW FORMAT: | Name | X pts | Stage N or Level | Duration or — | Portfolio | Assignee |\n\n'
+    +'EXAMPLE OUTPUT:\n'
     +'** Collaboration Black Belt Plan\n'
     +'ELIGIBLE CANDIDATES: '+eligibleStr+'\n'
-    +'| Black Belt Webex Sales Stage 1 | 1 pts | Stage 1 | 30min | Collaboration | '+focusUsers.filter(function(u){return u.role==='Sales';})[0]&&focusUsers.filter(function(u){return u.role==='Sales';})[0].name||focusUsers[0].name+' |\n'
-    +'| Black Belt Webex Technical Stage 1 | 1 pts | Stage 1 | 30min | Collaboration | '+focusUsers.filter(function(u){return u.role==='Technical';})[0]&&focusUsers.filter(function(u){return u.role==='Technical';})[0].name||focusUsers[focusUsers.length-1].name+' |\n'
-    +'TOTAL BB PTS NEEDED: X\n\n'
+    +'| Black Belt Webex Collaboration Sales Stage 1 | 1 pts | Stage 1 | 30min | Collaboration | '+exampleSales+' |\n'
+    +'| Black Belt Webex Collaboration Technical Stage 1 | 1 pts | Stage 1 | 30min | Collaboration | '+exampleTech+' |\n'
+    +'TOTAL BB PTS NEEDED: 2\n\n'
     +'** Collaboration Certification Plan\n'
     +'ELIGIBLE CANDIDATES: '+eligibleStr+'\n'
     +'LEVEL: Professional\n'
-    +'| CCNP Collaboration | 3 pts | Professional | — | Collaboration | '+focusUsers[0].name+' |\n'
-    +'TOTAL CERT PTS NEEDED: X\n';
+    +'| CCNP Collaboration | 3 pts | Professional | — | Collaboration | '+exampleSales+' |\n'
+    +'TOTAL CERT PTS NEEDED: 3\n';
 
   document.getElementById('cp-manual-modal').style.display='none';
   var btn=document.getElementById('cp-gen-btn');
