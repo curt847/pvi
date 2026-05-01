@@ -522,7 +522,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
       <div class="cp-gen-row" id="cp-gen-row" style="display:none">
         <button class="cp-gen-btn" id="cp-gen-btn" onclick="cpGenerate()" style="background:linear-gradient(135deg,#d97706 0%,#b45309 100%);"><span>&#10022;</span> What-If Cert Plan</button>
         <button class="cp-gen-btn" id="cp-manual-btn" onclick="cpShowManualModal()" style="background:linear-gradient(135deg,#6d28d9 0%,#7c3aed 100%);"><span>&#9998;</span> Manual Plan Criteria</button>
-        <button class="cp-gen-btn" id="cp-freeform-btn" onclick="cpShowFreeformModal()" style="background:linear-gradient(135deg,#0284c7 0%,#0369a1 100%);"><span>&#128172;</span> Freeform Prompt</button>
+        <!-- FREEFORM BUTTON REMOVED -->
         <div style="font-size:13px;color:var(--muted);display:none;" id="cp-gen-sub"></div>
       </div>
 
@@ -565,7 +565,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
           </div>
         </div>
       </div>
-      <!-- Freeform Prompt Modal -->
+      <!-- FREEFORM MODAL COMMENTED OUT
       <div id="cp-freeform-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);align-items:center;justify-content:center;">
         <div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;width:min(620px,95vw);box-shadow:0 24px 64px rgba(0,0,0,.5);">
           <div style="padding:18px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
@@ -596,7 +596,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
             </div>
           </div>
         </div>
-      </div>
+      END FREEFORM MODAL -->
       <div class="cp-ai-wrap" id="cp-ai-out">
         <div class="cp-ai-hdr">
           <span style="font-size:18px">&#10022;</span>
@@ -1954,7 +1954,12 @@ function cpFormatPlan(raw){
           else if(/^\d+min$/i.test(col))dur=col;
           else if(col.includes('+')&&!crossArch){archCovered=col;crossArch=col;}
           else if(/cross.arch/i.test(col)||col.startsWith('['))crossArch=col.replace(/^\[|\]$/g,'');
-          else if(col&&col!=='—'&&!assignee)assignee=col;
+          else if(col&&col!=='—'){
+            // Portfolio names are single words; employee names have spaces
+            var isPortfolio=/^(Networking|Security|Collaboration|Cloud|Services|Splunk|Mass Scale|Cross Architecture)$/i.test(col);
+            if(!isPortfolio&&!assignee)assignee=col;
+            else if(isPortfolio&&!archCovered)archCovered=col;
+          }
         }
       } else {
         pts=p[p.length-1];
@@ -2792,7 +2797,7 @@ function cpPrintBBRoster(){
     +'</body></html>');
   pw.document.close();
 }
-
+/* FREEFORM FUNCTIONS COMMENTED OUT
 function cpShowFreeformModal(){
   var modal=document.getElementById('cp-freeform-modal');
   if(!modal)return;
@@ -2946,7 +2951,7 @@ function cpRunFreeformPlan(){
     if(btn){btn.disabled=false;btn.innerHTML='<span>&#10022;</span> What-If Cert Plan';}
   });
 }
-
+END FREEFORM FUNCTIONS */
 // ── MANUAL CERT / BB PLAN ────────────────────────────────────────────────────
 var _mpFocusUsers=[]; // [{name, role}] where role = 'Sales' | 'Technical'
 
@@ -3104,28 +3109,37 @@ function cpRunManualPlan(){
     return s;
   }).join('\n');
 
-  // Build explicit ELIGIBLE CANDIDATES list for every section
+
+  // Build ELIGIBLE CANDIDATES string from focus list
   var eligibleStr=focusUsers.map(function(u){return u.name+' ('+u.role+')';}).join(', ');
-  var prompt='You are a Cisco 360 Partner Program expert. Build a plan that meets EXACTLY the requested points.\n\n'
+  // Determine scope — only include cert/BB sections that have targets > 0
+  var hasCertTargets=Object.values(certTargets).some(function(v){return v>0;});
+  var hasBBTargets=Object.values(bbTargets).some(function(v){return v>0;});
+  var prompt='You are a Cisco 360 Partner Program expert. Build a plan that meets EXACTLY the requested points — no more, no less.\n\n'
     +'MANDATORY RULES:\n'
-    +'1. ELIGIBLE CANDIDATES in each section MUST include ALL of these people: '+eligibleStr+'\n'
-    +'2. Distribute assignments across ALL eligible candidates — do NOT assign every row to one person.\n'
-    +'3. Keep a running point total per portfolio. STOP the INSTANT running total >= target. NEVER exceed target.\n'
-    +'4. Output ONLY pipe-delimited rows and section headers — no prose, no reasoning.\n\n'
-    +'TARGETS (stop the moment total >= target — do not add even one more row after hitting it):\n'+targLines.join('\n')+'\n\n'
+    +'1. ELIGIBLE CANDIDATES in EVERY section MUST list ALL of these people: '+eligibleStr+'\n'
+    +'2. Distribute rows across ALL eligible employees — do NOT assign everything to one person.\n'
+    +'3. ROLE MATCHING IS STRICT: Sales employees (marked Sales) ONLY get Sales-track or neutral trainings. Technical employees ONLY get Technical-track or neutral trainings.\n'
+    +'4. Every single output row MUST end with the assignee name — never omit it.\n'
+    +'5. Running total rule: add rows one at a time, track cumulative pts. STOP the instant cumulative >= target. Do NOT add another row even if it is only 0.5 pts over.\n'
+    +'6. Output ONLY pipe-delimited rows and section headers. No prose, no explanation, no preamble.\n'
+    +'7. If both BB and Cert targets exist for a portfolio, output BB Plan first, then Cert Plan for that portfolio.\n'
+    +'8. CROSS-ARCH: Strongly prefer trainings that count toward multiple target portfolios simultaneously — list them under each portfolio they satisfy.\n\n'
+    +'TARGETS:\n'+targLines.join('\n')+'\n\n'
     +'EMPLOYEES:\n'+empLines+'\n\n'
-    +'BB ROLE RULE: Sales employees → Sales-track BB trainings. Technical employees → Technical-track BB trainings.\n\n'
-    +'CERT REFERENCE:\n'+(certRef||'Use real Cisco certs: CCNA=1pt (Associate), CCNP=3pts (Professional), CCIE=10pts (Expert).')+'\n\n'
-    +'BB REFERENCE:\n'+(bbRef||'Use real Cisco Black Belt trainings: Stage 1=1pt, Stage 2=1.5pts, Stage 3=2pts.')+'\n\n'
-    +'OUTPUT FORMAT (use actual employee names — show ALL employees in ELIGIBLE CANDIDATES):\n'
-    +'** [Portfolio] Black Belt Plan\n'
+    +'CERT REFERENCE:\n'+(certRef||'Use real Cisco certs: CCNA=1pt (Associate), CCNP=3pts (Professional), CCIE=10pts (Expert). ONLY include certs for the portfolio listed in TARGETS.')+'\n\n'
+    +'BB REFERENCE:\n'+(bbRef||'Use real Cisco Black Belt trainings relevant to the target portfolios. Stage 1=1pt, Stage 2=1.5pts, Stage 3=2pts. Look for trainings labeled [CROSS-ARCH] first.')+'\n\n'
+    +'ROW FORMAT: | Training or Cert Name | X pts | Stage N or Level | Duration or — | Portfolio(s) | AssigneeName |\n\n'
+    +'OUTPUT FORMAT EXAMPLE:\n'
+    +'** Collaboration Black Belt Plan\n'
     +'ELIGIBLE CANDIDATES: '+eligibleStr+'\n'
-    +'| BB Training Title | X pts | Stage N | Ymin | Portfolio | AssigneeName |\n'
+    +'| Black Belt Webex Sales Stage 1 | 1 pts | Stage 1 | 30min | Collaboration | '+focusUsers.filter(function(u){return u.role==='Sales';})[0]&&focusUsers.filter(function(u){return u.role==='Sales';})[0].name||focusUsers[0].name+' |\n'
+    +'| Black Belt Webex Technical Stage 1 | 1 pts | Stage 1 | 30min | Collaboration | '+focusUsers.filter(function(u){return u.role==='Technical';})[0]&&focusUsers.filter(function(u){return u.role==='Technical';})[0].name||focusUsers[focusUsers.length-1].name+' |\n'
     +'TOTAL BB PTS NEEDED: X\n\n'
-    +'** [Portfolio] Certification Plan\n'
+    +'** Collaboration Certification Plan\n'
     +'ELIGIBLE CANDIDATES: '+eligibleStr+'\n'
-    +'LEVEL: Associate\n'
-    +'| Cert Name | X pts | Associate | — | Portfolio | AssigneeName |\n'
+    +'LEVEL: Professional\n'
+    +'| CCNP Collaboration | 3 pts | Professional | — | Collaboration | '+focusUsers[0].name+' |\n'
     +'TOTAL CERT PTS NEEDED: X\n';
 
   document.getElementById('cp-manual-modal').style.display='none';
