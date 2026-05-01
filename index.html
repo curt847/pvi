@@ -521,7 +521,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
       </div>
       <div class="cp-gen-row" id="cp-gen-row" style="display:none">
         <button class="cp-gen-btn" id="cp-gen-btn" onclick="cpGenerate()" style="background:linear-gradient(135deg,#d97706 0%,#b45309 100%);"><span>&#10022;</span> What-If Cert Plan</button>
-        <button class="cp-gen-btn" id="cp-manual-btn" onclick="cpShowManualModal()" style="background:linear-gradient(135deg,#6d28d9 0%,#7c3aed 100%);"><span>&#9998;</span> Manual Plan Criteria</button>
+        <button class="cp-gen-btn" id="cp-manual-btn" onclick="cpShowManualModal()" style="background:linear-gradient(135deg,#0284c7 0%,#7c3aed 100%);"><span>&#9998;</span> Manual Cert Plan</button>
         <!-- FREEFORM BUTTON REMOVED -->
         <div style="font-size:13px;color:var(--muted);display:none;" id="cp-gen-sub"></div>
       </div>
@@ -1974,8 +1974,10 @@ function cpFormatPlan(raw){
       if(/^(training|cert|name|level|item|bb training|assignee)$/i.test(name))return;
       cur.items.push({name:name,pts:pts,level:cur?cur.currentLevel:null,dur:dur,crossArch:crossArch,stage:stage,assignee:assignee,archCovered:archCovered});return;
     }
-    // Skip pure separator/filler lines
+    // Skip separator lines AND reasoning lines (no pipes = not a row)
     if(/^[-=#*\s]+$/.test(t)||/^\d+$/.test(t))return;
+    // Skip any prose/reasoning line that doesn't start with a keyword and has no pipes
+    if(t.indexOf('|')<0&&!/^(ELIGIBLE|LEVEL:|TOTAL|RUNNING)/i.test(t))return;
     if(!cur)cur={title:'',items:[],total:null,candidates:[],currentLevel:null,plain:[]};
     if(!cur.plain)cur.plain=[];
     cur.plain.push(t.replace(/\*\*/g,''));
@@ -2057,9 +2059,9 @@ function cpFormatPlan(raw){
       // BB = solid purple pill, Cert = solid blue pill — both distinct from amber What-if
       var pillBg=isBB?'#7c3aed':'#0284c7';
       var pillBorder=isBB?'#6d28d9':'#0369a1';
-      o+='<div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:10px 0 2px;border-top:1px solid var(--border);margin-top:8px;">'
-        +'<span style="font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);">'+label+'</span>'
-        +'<span style="font-family:\'JetBrains Mono\',monospace;font-size:20px;font-weight:800;background:'+pillBg+';border:2px solid '+pillBorder+';color:#fff;padding:1px 14px;border-radius:10px;line-height:1.4;">'+scoreStr+' pts</span>'
+      o+='<div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:8px 0 2px;border-top:1px solid var(--border);margin-top:8px;">'
+        +'<span style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);">Target:</span>'
+        +'<span style="font-family:\'JetBrains Mono\',monospace;font-size:18px;font-weight:800;background:'+pillBg+';border:2px solid '+pillBorder+';color:#fff;padding:1px 12px;border-radius:9px;line-height:1.4;">'+scoreStr+' pts</span>'
         +'</div>';
 
 
@@ -3134,41 +3136,32 @@ function cpRunManualPlan(){
   var techNames=focusUsers.filter(function(u){return u.role==='Technical';}).map(function(u){return u.name;}).join(', ');
   var exampleSales=salesNames||focusUsers[0].name;
   var exampleTech=techNames||focusUsers[focusUsers.length-1].name;
+  var firstBBPort=Object.keys(bbTargets).filter(function(p){return bbTargets[p]>0;})[0]||'Security';
+  var firstBBTgt=(bbTargets[firstBBPort]||5);
 
-  // Pre-build section scaffold so AI must fill exact slots
-  var sectionScaffold='';
-  Object.keys(bbTargets).forEach(function(p){
-    if(bbTargets[p]<=0)return;
-    sectionScaffold+='** '+p+' Black Belt Plan (Target: '+bbTargets[p]+' pts)\n';
-    sectionScaffold+='ELIGIBLE CANDIDATES: '+eligibleStr+'\n';
-    sectionScaffold+='[INSERT ROWS HERE — stop the instant running total >= '+bbTargets[p]+']\n';
-    sectionScaffold+='TOTAL BB PTS NEEDED: '+bbTargets[p]+'\n\n';
-  });
-  Object.keys(certTargets).forEach(function(p){
-    if(certTargets[p]<=0)return;
-    sectionScaffold+='** '+p+' Certification Plan (Target: '+certTargets[p]+' pts)\n';
-    sectionScaffold+='ELIGIBLE CANDIDATES: '+eligibleStr+'\n';
-    sectionScaffold+='[INSERT ROWS HERE — stop the instant running total >= '+certTargets[p]+']\n';
-    sectionScaffold+='TOTAL CERT PTS NEEDED: '+certTargets[p]+'\n\n';
-  });
+  var targBlock='TARGETS — track each portfolio independently; STOP that portfolio once its total >= target (cross-arch items count toward ALL portfolios they list simultaneously):\n';
+  Object.keys(bbTargets).forEach(function(p){if(bbTargets[p]>0)targBlock+=p+' Black Belt: '+bbTargets[p]+' pts\n';});
+  Object.keys(certTargets).forEach(function(p){if(certTargets[p]>0)targBlock+=p+' Certification: '+certTargets[p]+' pts\n';});
 
-  var prompt='Fill in the [INSERT ROWS HERE] slots in the scaffold below. Do NOT change any ** headers, ELIGIBLE CANDIDATES lines, or TOTAL lines — output them exactly as written. Replace only the [INSERT ROWS HERE] placeholder with the actual pipe-delimited rows.\n\n'
+  var prompt='Output ONLY the pipe-delimited plan. No reasoning, no analysis, no prose. Every line must be: a ** section header, ELIGIBLE CANDIDATES:, LEVEL:, a |pipe-delimited row|, or a TOTAL line. Nothing else.\n\n'
+    +targBlock+'\n'
     +'EMPLOYEES:\n'+empLines+'\n\n'
-    +'STRICT ROLE RULES (no exceptions):\n'
-    +(salesNames?'- SALES employees ('+salesNames+'): ONLY assign trainings with Sales or Pre-Sales in the track name. NEVER assign Deployment, Support, or SE tracks to Sales employees.\n':'')
-    +(techNames?'- TECHNICAL employees ('+techNames+'): ONLY assign trainings with Deployment, Support, SE, or Technical in the track name. NEVER assign Sales or Pre-Sales tracks to Technical employees.\n':'')
-    +'- Neutral trainings (no track designation) can go to either role.\n\n'
-    +'CROSS-ARCH COUNTING RULE:\n'
-    +'- A training marked [CROSS-ARCH] counts toward ALL portfolios it covers simultaneously.\n'
-    +'- Track each portfolio running total independently. Once a portfolio hits its target, stop adding items for that portfolio even if they are cross-arch.\n'
-    +'- If a cross-arch item would push a portfolio over its target, only include it if NO single-portfolio item can finish the gap.\n\n'
-    +'BB SELECTION: Cross-arch first → Sequential track stages in order → Shortest duration → Stage 1 for standalones.\n'
-    +'CERT SELECTION: Cross-arch first → Shortest path (Associate before Professional).\n'
-    +'Never include a training over 120min if a shorter option exists for the same pts.\n\n'
+    +'ROLE RULES (strict — no exceptions):\n'
+    +(salesNames?'- Sales employees ('+salesNames+'): ONLY trainings with Sales or Pre-Sales in track. Never Deployment/Support/SE.\n':'')
+    +(techNames?'- Technical employees ('+techNames+'): ONLY trainings with Deployment/Support/SE/Technical in track. Never Sales/Pre-Sales.\n':'')
+    +'- Neutral tracks may go to either.\n\n'
+    +'CROSS-ARCH: [CROSS-ARCH] trainings count toward ALL listed portfolios. Stop a portfolio the instant its running total meets its target.\n\n'
+    +'BB PRIORITY: 1) Cross-arch first 2) Sequential stages in same track (Stage1→2→3) 3) Shortest duration 4) Stage 1 for standalones. No training >120min when shorter alternatives exist.\n'
+    +'CERT PRIORITY: 1) Cross-arch first 2) Associate before Professional unless more pts needed.\n\n'
     +'BB REFERENCE:\n'+bbRef+'\n\n'
     +'CERT REFERENCE:\n'+certRef+'\n\n'
     +'ROW FORMAT: | Name | X pts | Stage N or Level | Duration | Portfolio(s) | Assignee |\n\n'
-    +'SCAFFOLD TO FILL:\n'+sectionScaffold;
+    +'OUTPUT STRUCTURE — one section per portfolio per type, BB separate from Cert:\n'
+    +'** '+firstBBPort+' Black Belt Plan (Target: '+firstBBTgt+' pts)\n'
+    +'ELIGIBLE CANDIDATES: '+eligibleStr+'\n'
+    +'| Black Belt Example Sales Stage 1 | 1 pts | Stage 1 | 20min | '+firstBBPort+' | '+exampleSales+' |\n'
+    +'TOTAL BB PTS NEEDED: '+firstBBTgt+'\n'
+    +'(same structure for every remaining portfolio and type)';
 
 
   document.getElementById('cp-manual-modal').style.display='none';
@@ -3183,7 +3176,7 @@ function cpRunManualPlan(){
     method:'POST',
     headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
     body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:3000,
-      system:'You are a Cisco 360 Partner Program expert. Your only job is to fill in [INSERT ROWS HERE] placeholders in the scaffold provided. Output the scaffold exactly as given — same ** headers, same ELIGIBLE CANDIDATES lines, same TOTAL lines — but replace each [INSERT ROWS HERE] with the correct pipe-delimited rows. Do not add, remove, or reword any other part of the scaffold.',
+      system:'You are a Cisco 360 Partner Program expert. Output ONLY the plan — zero reasoning or explanation. Every single line of your response must be one of: a **Section Header**, ELIGIBLE CANDIDATES: ..., LEVEL: ..., a |pipe|delimited|row|, or TOTAL BB/CERT PTS NEEDED: X. If a line does not match one of these formats, do not output it.',
       messages:[{role:'user',content:prompt}]})
   }).then(function(r){return r.json();}).then(function(data){
     if(data.error)throw new Error(data.error.type+': '+data.error.message);
