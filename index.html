@@ -1989,13 +1989,15 @@ function cpFormatPlan(raw){
       var hdrStyle=isBBSection
         ?'background:rgba(124,58,237,.15);border-left:4px solid #7c3aed;'
         :'background:rgba(4,159,217,.15);border-left:4px solid var(--blue2);';
-      // Extract target number from sec.total for the header badge
+      // Extract target from sec.total OR from section title "(Target: X pts)"
       var targetNum=null;
       if(sec.total){var tm=sec.total.match(/([\d.]+)/);if(tm)targetNum=tm[1];}
+      if(!targetNum){var tm2=sec.title.match(/[Tt]arget[:\s]+([\d.]+)/);if(tm2)targetNum=tm2[1];}
+      var cleanTitle=sec.title.replace(/\s*\([Tt]arget[^)]*\)/,'').trim();
       var targetBadge=targetNum
-        ?'<span style="font-size:10px;font-weight:800;opacity:.8;background:'+(isBBSection?'rgba(124,58,237,.3)':'rgba(4,159,217,.25)')+';border-radius:8px;padding:2px 10px;margin-left:10px;">Target: '+targetNum+' pts</span>'
+        ?'<span style="font-size:10px;font-weight:800;background:'+(isBBSection?'rgba(124,58,237,.35)':'rgba(4,159,217,.3)')+';border-radius:8px;padding:2px 10px;margin-left:10px;color:#fff;">Target: '+targetNum+' pts</span>'
         :'';
-      o+='<div class="cp-section-hdr" style="'+hdrStyle+'display:flex;align-items:center;">'+sec.title+targetBadge+'</div>';
+      o+='<div class="cp-section-hdr" style="'+hdrStyle+'display:flex;align-items:center;">'+cleanTitle+targetBadge+'</div>';
     }
     if(sec.candidates&&sec.candidates.length){
       o+='<div class="cp-candidates-block">'
@@ -3148,18 +3150,24 @@ function cpRunManualPlan(){
     +'3. STAGE 1 EQUIVALENT: Prefer Associate-level certs unless Professional or Expert is needed to hit the point target.\n\n'
     +'CERT REFERENCE:\n'+(certRef||'Use real Cisco certs: CCNA=1pt (Associate), CCNP=3pts (Professional), CCIE=10pts (Expert).')+'\n\n'
     +'BB REFERENCE:\n'+(bbRef||'Use real Cisco Black Belt trainings. Stage 1=1pt, Stage 2=1.5pts, Stage 3=2pts.')+'\n\n'
-    +'ROW FORMAT: | Name | X pts | Stage N or Level | Duration or — | Portfolio | Assignee |\n\n'
-    +'EXAMPLE OUTPUT:\n'
-    +'** Collaboration Black Belt Plan\n'
+    +'CRITICAL FORMAT RULES:\n'
+    +'- Black Belt trainings and Professional Certifications go in SEPARATE sections with their own ** header.\n'
+    +'- NEVER mix BB trainings and certs in the same section.\n'
+    +'- Every section MUST start with ** and end with TOTAL BB PTS NEEDED or TOTAL CERT PTS NEEDED.\n'
+    +'- ROW FORMAT: | Training or Cert Name | X pts | Stage N or Level | Duration or — | Portfolio | Assignee |\n\n'
+    +'EXACT OUTPUT FORMAT — follow this structure for each portfolio that has a target:\n'
+    +'** [Portfolio] Black Belt Plan (Target: X pts)\n'
     +'ELIGIBLE CANDIDATES: '+eligibleStr+'\n'
-    +'| Black Belt Webex Collaboration Sales Stage 1 | 1 pts | Stage 1 | 30min | Collaboration | '+exampleSales+' |\n'
-    +'| Black Belt Webex Collaboration Technical Stage 1 | 1 pts | Stage 1 | 30min | Collaboration | '+exampleTech+' |\n'
-    +'TOTAL BB PTS NEEDED: 2\n\n'
-    +'** Collaboration Certification Plan\n'
+    +'| Black Belt [Name] Sales Stage 1 | 1 pts | Stage 1 | 30min | [Portfolio] | '+exampleSales+' |\n'
+    +'| Black Belt [Name] Technical Stage 1 | 1 pts | Stage 1 | 30min | [Portfolio] | '+exampleTech+' |\n'
+    +'TOTAL BB PTS NEEDED: X\n\n'
+    +'** [Portfolio] Certification Plan (Target: X pts)\n'
     +'ELIGIBLE CANDIDATES: '+eligibleStr+'\n'
+    +'LEVEL: Associate\n'
+    +'| CCNA [Portfolio] | 1 pts | Associate | — | [Portfolio] | '+exampleSales+' |\n'
     +'LEVEL: Professional\n'
-    +'| CCNP Collaboration | 3 pts | Professional | — | Collaboration | '+exampleSales+' |\n'
-    +'TOTAL CERT PTS NEEDED: 3\n';
+    +'| CCNP [Portfolio] | 3 pts | Professional | — | [Portfolio] | '+exampleTech+' |\n'
+    +'TOTAL CERT PTS NEEDED: X\n';
 
   document.getElementById('cp-manual-modal').style.display='none';
   var btn=document.getElementById('cp-gen-btn');
@@ -3173,7 +3181,7 @@ function cpRunManualPlan(){
     method:'POST',
     headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
     body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:3000,
-      system:'You are a Cisco 360 Partner Program expert. Output ONLY the pipe-delimited plan. No reasoning, no explanation. Begin directly with the first ** header. CRITICAL: Never exceed the point target for any portfolio — stop adding rows the moment the running total reaches the target.',
+      system:'You are a Cisco 360 Partner Program expert. Output ONLY pipe-delimited rows and ** section headers. NEVER mix Black Belt trainings and Certifications in the same section — they MUST be in separate sections with separate ** headers and separate TOTAL lines. Never exceed the point target. Begin directly with the first ** header. No prose, no explanation, no preamble.',
       messages:[{role:'user',content:prompt}]})
   }).then(function(r){return r.json();}).then(function(data){
     if(data.error)throw new Error(data.error.type+': '+data.error.message);
