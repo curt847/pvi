@@ -525,8 +525,9 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
         <button onclick="cpProcessStaged()" id="cp-stage-btn" style="padding:8px 20px;border-radius:8px;border:none;cursor:pointer;background:var(--blue);color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:800;white-space:nowrap;">Process →</button>
       </div>
       <div class="cp-gen-row" id="cp-gen-row" style="display:none">
-        <button class="cp-gen-btn" id="cp-gen-btn" onclick="cpGenerate()"><span>&#10022;</span> Generate Cert Plan</button>
-        <button class="cp-gen-btn" id="cp-manual-btn" onclick="cpShowManualModal()" style="background:linear-gradient(135deg,#0369a1 0%,#7c3aed 100%);"><span>&#9998;</span> Manual Plan Criteria</button>
+        <button class="cp-gen-btn" id="cp-gen-btn" onclick="cpGenerate()"><span>&#10022;</span> AI Cert Plan</button>
+        <button class="cp-gen-btn" id="cp-manual-btn" onclick="cpShowManualModal()" style="background:linear-gradient(135deg,#6d28d9 0%,#7c3aed 100%);"><span>&#9998;</span> Manual Plan Criteria</button>
+        <button class="cp-gen-btn" id="cp-freeform-btn" onclick="cpShowFreeformModal()" style="background:linear-gradient(135deg,#0f766e 0%,#0284c7 100%);"><span>&#128172;</span> Freeform Prompt</button>
         <div style="font-size:13px;color:var(--muted)" id="cp-gen-sub">AI will focus on satisfying your what-if PVI gap goals.</div>
       </div>
 
@@ -541,20 +542,20 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
             <!-- Pro Cert points per architecture -->
             <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#0284c7;margin-bottom:10px;">📋 Pro Cert Points Needed — by Architecture</div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px;" id="cp-manual-cert-inputs">
-              <div style="display:flex;align-items:center;gap:8px;"><label style="font-size:13px;flex:1;">Networking</label><input type="number" min="0" step="1" id="mp-cert-net" placeholder="0" style="width:70px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;text-align:right;"></div>
-              <div style="display:flex;align-items:center;gap:8px;"><label style="font-size:13px;flex:1;">Security</label><input type="number" min="0" step="1" id="mp-cert-sec" placeholder="0" style="width:70px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;text-align:right;"></div>
-              <div style="display:flex;align-items:center;gap:8px;"><label style="font-size:13px;flex:1;">Collaboration</label><input type="number" min="0" step="1" id="mp-cert-col" placeholder="0" style="width:70px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;text-align:right;"></div>
-              <div style="display:flex;align-items:center;gap:8px;"><label style="font-size:13px;flex:1;">Cloud + AI Infrastructure</label><input type="number" min="0" step="1" id="mp-cert-cl" placeholder="0" style="width:70px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;text-align:right;"></div>
-              <div style="display:flex;align-items:center;gap:8px;"><label style="font-size:13px;flex:1;">Services</label><input type="number" min="0" step="1" id="mp-cert-svc" placeholder="0" style="width:70px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;text-align:right;"></div>
+              <div style="display:flex;align-items:center;gap:8px;"><label style="font-size:13px;flex:1;">Networking</label><input type="text" inputmode="numeric" id="mp-cert-net" placeholder="0" style="width:70px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;text-align:right;"></div>
+              <div style="display:flex;align-items:center;gap:8px;"><label style="font-size:13px;flex:1;">Security</label><input type="text" inputmode="numeric" id="mp-cert-sec" placeholder="0" style="width:70px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;text-align:right;"></div>
+              <div style="display:flex;align-items:center;gap:8px;"><label style="font-size:13px;flex:1;">Collaboration</label><input type="text" inputmode="numeric" id="mp-cert-col" placeholder="0" style="width:70px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;text-align:right;"></div>
+              <div style="display:flex;align-items:center;gap:8px;"><label style="font-size:13px;flex:1;">Cloud + AI Infrastructure</label><input type="text" inputmode="numeric" id="mp-cert-cl" placeholder="0" style="width:70px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;text-align:right;"></div>
+              <div style="display:flex;align-items:center;gap:8px;"><label style="font-size:13px;flex:1;">Services</label><input type="text" inputmode="numeric" id="mp-cert-svc" placeholder="0" style="width:70px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;text-align:right;"></div>
             </div>
             <!-- BB points per architecture -->
             <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#7c3aed;margin-bottom:10px;">🥋 Black Belt Points Needed — by Architecture</div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px;">
-              <div style="display:flex;align-items:center;gap:8px;"><label style="font-size:13px;flex:1;">Networking</label><input type="number" min="0" step="0.5" id="mp-bb-net" placeholder="0" style="width:70px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;text-align:right;"></div>
-              <div style="display:flex;align-items:center;gap:8px;"><label style="font-size:13px;flex:1;">Security</label><input type="number" min="0" step="0.5" id="mp-bb-sec" placeholder="0" style="width:70px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;text-align:right;"></div>
-              <div style="display:flex;align-items:center;gap:8px;"><label style="font-size:13px;flex:1;">Collaboration</label><input type="number" min="0" step="0.5" id="mp-bb-col" placeholder="0" style="width:70px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;text-align:right;"></div>
-              <div style="display:flex;align-items:center;gap:8px;"><label style="font-size:13px;flex:1;">Cloud + AI Infrastructure</label><input type="number" min="0" step="0.5" id="mp-bb-cl" placeholder="0" style="width:70px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;text-align:right;"></div>
-              <div style="display:flex;align-items:center;gap:8px;"><label style="font-size:13px;flex:1;">Services</label><input type="number" min="0" step="0.5" id="mp-bb-svc" placeholder="0" style="width:70px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;text-align:right;"></div>
+              <div style="display:flex;align-items:center;gap:8px;"><label style="font-size:13px;flex:1;">Networking</label><input type="text" inputmode="decimal" id="mp-bb-net" placeholder="0" style="width:70px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;text-align:right;"></div>
+              <div style="display:flex;align-items:center;gap:8px;"><label style="font-size:13px;flex:1;">Security</label><input type="text" inputmode="decimal" id="mp-bb-sec" placeholder="0" style="width:70px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;text-align:right;"></div>
+              <div style="display:flex;align-items:center;gap:8px;"><label style="font-size:13px;flex:1;">Collaboration</label><input type="text" inputmode="decimal" id="mp-bb-col" placeholder="0" style="width:70px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;text-align:right;"></div>
+              <div style="display:flex;align-items:center;gap:8px;"><label style="font-size:13px;flex:1;">Cloud + AI Infrastructure</label><input type="text" inputmode="decimal" id="mp-bb-cl" placeholder="0" style="width:70px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;text-align:right;"></div>
+              <div style="display:flex;align-items:center;gap:8px;"><label style="font-size:13px;flex:1;">Services</label><input type="text" inputmode="decimal" id="mp-bb-svc" placeholder="0" style="width:70px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;text-align:right;"></div>
             </div>
             <!-- Focus users -->
             <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:8px;">👥 Focus Users <span style="font-weight:400;font-style:italic;text-transform:none;letter-spacing:0;">(leave blank for all employees)</span></div>
@@ -569,7 +570,24 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
           </div>
         </div>
       </div>
-      <div class="cp-ai-wrap" id="cp-ai-out">
+      <!-- Freeform Prompt Modal -->
+      <div id="cp-freeform-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);align-items:center;justify-content:center;">
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;width:min(620px,95vw);box-shadow:0 24px 64px rgba(0,0,0,.5);">
+          <div style="padding:18px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+            <div style="font-size:16px;font-weight:800;">💬 Freeform Plan Prompt</div>
+            <button onclick="document.getElementById('cp-freeform-modal').style.display='none'" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1;">✕</button>
+          </div>
+          <div style="padding:20px 24px;">
+            <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">Describe your cert/BB plan in plain language. The AI will interpret it using your loaded employee and training data.</div>
+            <div style="font-size:11px;color:var(--muted);margin-bottom:8px;font-style:italic;">Examples: "Give all Collaboration trainings to Matthew White and divide the others among the rest" · "Focus on Security certs for senior staff only" · "Prioritize Stage 3 BB trainings for Networking"</div>
+            <textarea id="cp-freeform-text" rows="5" placeholder="Type your instructions here…" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;resize:vertical;box-sizing:border-box;"></textarea>
+            <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px;">
+              <button onclick="document.getElementById('cp-freeform-modal').style.display='none'" style="padding:9px 20px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Cancel</button>
+              <button onclick="cpRunFreeformPlan()" style="padding:9px 24px;border-radius:8px;border:none;background:linear-gradient(135deg,#0f766e 0%,#0284c7 100%);color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:800;cursor:pointer;">Generate Plan →</button>
+            </div>
+          </div>
+        </div>
+      </div>
         <div class="cp-ai-hdr">
           <span style="font-size:18px">&#10022;</span>
           <h3>PVI Certification Strategy</h3>
@@ -1914,30 +1932,33 @@ function cpFormatPlan(raw){
       if(!p[0]||/^[-\s]+$/.test(p[0]))return;
       if(/^(training\s*name|cert\s*name|name|#)$/i.test(p[0]))return;
       if(!cur)cur={title:'',items:[],total:null,candidates:[],currentLevel:null};
-      // Expected format: "Title | X pts"
-      // Also handle: "N | Title | X pts" (numbered), "Title | X pts | Level" (3-col)
-      // Strategy: find the pts column (matches digits+pts), use col before it (or all before) as name
+      // Expected format: "Title | X pts [| Stage N] [| Assignee]"
+      // Find pts column, then grab name before it, stage/assignee after it
       var ptsIdx=-1;
       for(var ci=0;ci<p.length;ci++){if(/^[\d.]+\s*pts?$/i.test(p[ci])){ptsIdx=ci;break;}}
-      var name,pts,dur=null,crossArch=null;
+      var name,pts,dur=null,crossArch=null,assignee=null,stage=null;
       if(ptsIdx>=0){
         pts=p[ptsIdx];
         var start=/^\d+$/.test(p[0])?1:0;
         name=p.slice(start,ptsIdx).join(' ').trim();
-        // capture extra columns after pts: duration (e.g. "29min"), cross-arch (e.g. "[CROSS-ARCH: X + Y]")
+        // Parse columns after pts
         for(var ci2=ptsIdx+1;ci2<p.length;ci2++){
           var col=p[ci2].trim();
+          if(!col)continue;
           if(/^\d+min$/i.test(col))dur=col;
+          else if(/^stage\s*[123]/i.test(col))stage=col;
           else if(/cross.arch/i.test(col)||col.startsWith('['))crossArch=col.replace(/^\[|\]$/g,'');
+          else if(col&&!assignee)assignee=col; // last unrecognized col = assignee
         }
       } else {
+        // Last col is pts if no "pts" suffix
         pts=p[p.length-1];
         var start2=/^\d+$/.test(p[0])?1:0;
         name=p.slice(start2,p.length-1).join(' ').trim();
       }
       if(!name||/^[-\s]+$/.test(name))return;
-      if(/^(training|cert|name|level|item)$/i.test(name))return;
-      cur.items.push({name:name,pts:pts,level:cur?cur.currentLevel:null,dur:dur,crossArch:crossArch});return;
+      if(/^(training|cert|name|level|item|bb training|assignee)$/i.test(name))return;
+      cur.items.push({name:name,pts:pts,level:cur?cur.currentLevel:null,dur:dur,crossArch:crossArch,stage:stage,assignee:assignee});return;
     }
     // Skip pure separator/filler lines
     if(/^[-=#*\s]+$/.test(t)||/^\d+$/.test(t))return;
@@ -1948,8 +1969,14 @@ function cpFormatPlan(raw){
   if(cur)sections.push(cur);
   if(!sections.length)return '<div class="cp-plain">'+raw.replace(/\*\*/g,'').trim()+'</div>';
   return sections.map(function(sec){
+    var isBBSection=/black.?belt/i.test(sec.title);
     var o='<div class="cp-section">';
-    if(sec.title)o+='<div class="cp-section-hdr">'+sec.title+'</div>';
+    if(sec.title){
+      var hdrStyle=isBBSection
+        ?'background:rgba(124,58,237,.15);border-left:4px solid #7c3aed;'
+        :'background:rgba(4,159,217,.15);border-left:4px solid var(--blue2);';
+      o+='<div class="cp-section-hdr" style="'+hdrStyle+'">'+sec.title+'</div>';
+    }
     if(sec.candidates&&sec.candidates.length){
       o+='<div class="cp-candidates-block">'
         +'<div class="cp-candidates-label">Eligible Candidates</div>'
@@ -1960,31 +1987,43 @@ function cpFormatPlan(raw){
     if(sec.plain&&sec.plain.length)o+='<div class="cp-plain">'+sec.plain.join('<br>')+'</div>';
     var lastLevel=null,seenNames={};
     sec.items.forEach(function(item){
-      if(seenNames[item.name.toLowerCase()])return; // deduplicate
+      if(seenNames[item.name.toLowerCase()])return;
       seenNames[item.name.toLowerCase()]=true;
       if(item.level&&item.level!==lastLevel){
         o+='<div class="cp-level-label">'+item.level+'</div>';
         lastLevel=item.level;
       }
       var metaBadges='';
-      // Look up all portfolios this training covers directly from CP_BB data
+      // Cross-arch badge
       var _bbPorts=[];
       CP_BB.forEach(function(b){if(b['LM_TITLE']===item.name&&_bbPorts.indexOf(b['PXP Portfolio'])<0)_bbPorts.push(b['PXP Portfolio']);});
       if(_bbPorts.length>1){
-        metaBadges+='<span style="font-size:10px;font-weight:700;background:rgba(168,85,247,.15);border:1px solid rgba(168,85,247,.3);color:#a78bfa;padding:2px 8px;border-radius:10px;margin-left:6px;white-space:nowrap;">⟷ '+_bbPorts.join(' + ')+'</span>';
+        metaBadges+='<span style="font-size:10px;font-weight:700;background:rgba(124,58,237,.15);border:1px solid rgba(124,58,237,.3);color:#a78bfa;padding:2px 8px;border-radius:10px;margin-left:6px;white-space:nowrap;">⟷ '+_bbPorts.join(' + ')+'</span>';
+      }
+      // Stage badge
+      if(item.stage){
+        var stageCol=item.stage.includes('3')?'#c4b5fd':item.stage.includes('2')?'#a78bfa':'#7c3aed';
+        metaBadges+='<span style="font-size:10px;font-weight:700;background:rgba(124,58,237,.12);border:1px solid rgba(124,58,237,.25);color:'+stageCol+';padding:2px 8px;border-radius:10px;margin-left:6px;white-space:nowrap;">'+item.stage+'</span>';
       }
       if(item.dur)metaBadges+='<span style="font-size:10px;font-weight:700;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.25);color:#22c55e;padding:2px 8px;border-radius:10px;margin-left:6px;white-space:nowrap;">⏱ '+item.dur+'</span>';
+      // Assignee pill
+      var assigneeHtml=item.assignee
+        ?'<div style="padding:8px 14px;background:rgba(4,159,217,.1);border-left:1px solid var(--border);font-size:12px;font-weight:700;color:#049fd9;white-space:nowrap;display:flex;align-items:center;gap:5px;"><span style="opacity:.6;">→</span>'+item.assignee+'</div>'
+        :'';
       o+='<div class="cp-item-no-who">'
         +'<div class="cp-item-name">'+item.name+metaBadges+'</div>'
+        +(assigneeHtml||'')
         +'<div class="cp-item-pts">'+item.pts+'</div>'
         +'</div>';
     });
     if(sec.total){
       var isBB=/black.?belt/i.test(sec.title);
       var label=isBB?'TOTAL BB POINTS NEEDED:':'TOTAL CERT POINTS NEEDED:';
+      var totalColor=isBB?'#a78bfa':'var(--blue)';
+      var totalScoreColor=isBB?'#7c3aed':'var(--blue2)';
       var m=sec.total.match(/([\d.]+)\s*\/\s*([\d.]+)/);
       var scoreStr=m?m[2]:sec.total.replace(/TOTAL\s+\S+\s+PTS?\s+\S+:\s*/i,'').trim();
-      o+='<div class="cp-total-big"><span class="cp-total-big-label">'+label+'</span><span class="cp-total-big-score">'+scoreStr+'</span></div>';
+      o+='<div class="cp-total-big"><span class="cp-total-big-label" style="color:'+totalColor+'">'+label+'</span><span class="cp-total-big-score" style="color:'+totalScoreColor+'">'+scoreStr+'</span></div>';
     }
     return o+'</div>';
   }).join('');
@@ -2731,6 +2770,86 @@ function cpPrintBBRoster(){
   pw.document.close();
 }
 
+function cpShowFreeformModal(){
+  var modal=document.getElementById('cp-freeform-modal');
+  if(!modal)return;
+  var ta=document.getElementById('cp-freeform-text');
+  if(ta)ta.value='';
+  modal.style.display='flex';
+}
+
+function cpRunFreeformPlan(){
+  var apiKey=(document.getElementById('cp-api-key').value||'').replace(/[^\x20-\x7E]/g,'').trim();
+  if(!apiKey){alert('Please paste your Anthropic API key first.');return;}
+  var userPrompt=(document.getElementById('cp-freeform-text').value||'').trim();
+  if(!userPrompt){alert('Please type your instructions first.');return;}
+
+  // Build context: employees, cert ref, BB ref
+  var allNames=Object.keys(cpEmployees).slice();
+  Object.keys(bbEmployees).forEach(function(n){if(allNames.indexOf(n)<0)allNames.push(n);});
+  var empLines=allNames.map(function(name){
+    var emp=cpEmployees[name];
+    var bbEmp=bbEmployees[name];
+    var certPts=emp?emp.certs.filter(function(c){return c.isPVI;}).reduce(function(s,c){return s+c.points;},0):0;
+    var bbPts=bbEmp?bbEmp.completions.reduce(function(s,c){return s+c.multiplier;},0):0;
+    return name+' (certPts:'+certPts+(bbPts?', bbPts:'+bbPts:'')+')';
+  }).join('\n');
+
+  var _seen={};
+  var certRef=CP_CERTS.filter(function(c){
+    if(!['Associate','Professional','Expert'].includes(c['Level Name']))return false;
+    var k=c['Exam Code']+'|'+c['Portfolio'];if(_seen[k])return false;_seen[k]=true;return true;
+  }).map(function(c){return c['Exam Code']+' | '+c['Exam Name']+' | '+c['Level Name']+' | '+c['Multiplier']+'pts | '+c['Portfolio'];}).join('\n');
+
+  var _seenBB={};
+  var bbRef=CP_BB.filter(function(b){
+    var k=b['LM_TITLE']+'|'+b['PXP Portfolio'];if(_seenBB[k])return false;_seenBB[k]=true;return true;
+  }).slice(0,150).map(function(b){
+    return b['LM_TITLE']+' | '+b['PVI Mulitiplier']+'pts | '+b['STAGE']+' | '+b['PXP Portfolio'];
+  }).join('\n');
+
+  var prompt='USER INSTRUCTION: '+userPrompt+'\n\n'
+    +'EMPLOYEES:\n'+empLines+'\n\n'
+    +'CERT REFERENCE (ExamCode | Name | Level | Points | Portfolio):\n'+certRef+'\n\n'
+    +'BB REFERENCE (Title | Points | Stage | Portfolio):\n'+bbRef+'\n\n'
+    +'Interpret the user instruction and build a plan. Each row must include the assignee name in the last pipe column. '
+    +'Use EXACTLY this format:\n\n'
+    +'** [Portfolio] Certification Plan\n'
+    +'ELIGIBLE CANDIDATES: Name1, Name2\n'
+    +'LEVEL: Professional\n'
+    +'| Cert Name | 3 pts | AssigneeName |\n'
+    +'TOTAL CERT PTS NEEDED: X\n\n'
+    +'** [Portfolio] Black Belt Plan\n'
+    +'ELIGIBLE CANDIDATES: Name1, Name2\n'
+    +'| BB Training Title | 2 pts | Stage 3 | AssigneeName |\n'
+    +'TOTAL BB PTS NEEDED: X\n';
+
+  document.getElementById('cp-freeform-modal').style.display='none';
+  var btn=document.getElementById('cp-gen-btn');
+  var out=document.getElementById('cp-ai-out');
+  var body=document.getElementById('cp-ai-body');
+  if(btn)btn.disabled=true;
+  out.classList.add('show');
+  body.innerHTML='<div class="cp-plain">Interpreting your instructions…</div>';
+
+  fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:3000,
+      system:'You are a Cisco 360 Partner Program expert. Follow the user\'s instructions exactly. Output ONLY the pipe-delimited plan. No reasoning or explanation. Begin directly with the first ** header.',
+      messages:[{role:'user',content:prompt}]})
+  }).then(function(r){return r.json();}).then(function(data){
+    if(data.error)throw new Error(data.error.type+': '+data.error.message);
+    body.innerHTML=cpFormatPlan(data.content[0].text);
+    document.getElementById('cp-print-btn').style.display='';
+    document.getElementById('cp-email-btn').style.display='';
+    if(btn){btn.disabled=false;btn.innerHTML='<span>&#10022;</span> AI Cert Plan';}
+  }).catch(function(err){
+    body.innerHTML='<div class="cp-plain">Error: '+err.message+'</div>';
+    if(btn){btn.disabled=false;btn.innerHTML='<span>&#10022;</span> AI Cert Plan';}
+  });
+}
+
 // ── MANUAL CERT / BB PLAN ────────────────────────────────────────────────────
 var _mpFocusUsers=[];
 
@@ -2832,26 +2951,29 @@ function cpRunManualPlan(){
   var prompt='You are a Cisco 360 Partner Program expert building a certification and Black Belt plan.\n\n'
     +'TARGETS (points to add):\n'+targLines.join('\n')+'\n\n'
     +'FOCUS EMPLOYEES:\n'+empLines+'\n\n'
-    +'ASSIGNMENT RULE: Distribute proportionally inverse to current points. '
-    +'Employee with 0 pts gets ~2× the assignments of one with 10 pts. '
-    +'An employee with MORE current points in a portfolio should receive FEWER assignments for that portfolio.\n\n'
+    +'ASSIGNMENT RULE: For each cert or BB training, assign it to ONE specific employee. '
+    +'Employees with fewer current points in that portfolio should receive more assignments. '
+    +'An employee with 0 pts gets roughly twice as many assignments as one with 10 pts.\n\n'
     +'CERT REFERENCE (ExamCode | Name | Level | Points | Portfolio):\n'+(certRef||'None')+'\n\n'
-    +'BB REFERENCE (Title | Points | Stage | Portfolio | CrossArch?):\n'+(bbRef||'None')+'\n\n'
-    +'INSTRUCTIONS:\n'
-    +'- Pick the most efficient certs/BB trainings to reach each target with fewest total assignments.\n'
-    +'- For BB: prefer shorter Duration, higher Stage multiplier, cross-arch when multiple portfolios need coverage.\n'
-    +'- For certs: prefer higher point values (Expert > Professional > Associate) for efficiency.\n'
-    +'- Assign specific employees to each item based on the inverse-proportional rule.\n'
-    +'- Use EXACTLY this output format:\n\n'
-    +'** [Portfolio] — Certification Plan\n'
+    +'BB REFERENCE (Title | Points | Stage | Portfolio):\n'+(bbRef||'None')+'\n\n'
+    +'CRITICAL INSTRUCTIONS:\n'
+    +'- Each row MUST include the assigned employee name in the last column.\n'
+    +'- Do NOT include a summary paragraph or assignment breakdown text — only the pipe-delimited table rows.\n'
+    +'- Section headers must be exactly: ** [Portfolio] Certification Plan OR ** [Portfolio] Black Belt Plan\n'
+    +'- For BB: prefer Stage 3 (2pts) over Stage 2 (1.5pts) over Stage 1 (1pt) for efficiency.\n'
+    +'- For certs: prefer Expert (10pts) > Professional (3pts) > Associate (1pt).\n'
+    +'- Use EXACTLY this output format with no deviations:\n\n'
+    +'** Networking Certification Plan\n'
     +'ELIGIBLE CANDIDATES: Name1, Name2\n'
     +'LEVEL: Professional\n'
-    +'| Cert Name | X pts |\n'
-    +'TOTAL CERT PTS NEEDED: Y\n\n'
-    +'** [Portfolio] — Black Belt Plan\n'
+    +'| CCNP Enterprise | 3 pts | Name1 |\n'
+    +'| CCNP Security | 3 pts | Name2 |\n'
+    +'TOTAL CERT PTS NEEDED: 6\n\n'
+    +'** Networking Black Belt Plan\n'
     +'ELIGIBLE CANDIDATES: Name1, Name2\n'
-    +'| BB Training Name | X pts | Stage N |\n'
-    +'TOTAL BB PTS NEEDED: Y\n';
+    +'| Black Belt Training Title | 2 pts | Stage 3 | Name1 |\n'
+    +'| Another BB Training | 1.5 pts | Stage 2 | Name2 |\n'
+    +'TOTAL BB PTS NEEDED: 10\n';
 
   document.getElementById('cp-manual-modal').style.display='none';
   var btn=document.getElementById('cp-gen-btn');
