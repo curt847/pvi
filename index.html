@@ -2172,12 +2172,12 @@ function cpFormatPlan(raw){
           var col=p[ci2].trim();
           if(!col)continue;
           if(/^stage\s*[123]/i.test(col))stage=col;
+          else if(/^(associate|professional|expert)$/i.test(col)){if(!stage)stage=col;}  // cert level
           else if(/^[\d.]+\s*(min|hr|h|hour)s?$/i.test(col))dur=col;
           else if(col==='—'&&!dur)dur=null;
           else if(col.includes('+')&&!crossArch){archCovered=col;crossArch=col;}
           else if(/cross.arch/i.test(col)||col.startsWith('['))crossArch=col.replace(/^\[|\]$/g,'');
           else if(col&&col!=='—'){
-            // Portfolio names are single words; employee names have spaces
             var isPortfolio=/^(Networking|Security|Collaboration|Cloud|Services|Splunk|Mass Scale|Cross Architecture)$/i.test(col);
             if(!isPortfolio&&!assignee)assignee=col;
             else if(isPortfolio&&!archCovered)archCovered=col;
@@ -2248,10 +2248,19 @@ function cpFormatPlan(raw){
       if(archLabel&&!/^cross.?arch/i.test(archLabel)){
         metaBadges+='<span style="font-size:10px;font-weight:700;background:rgba(124,58,237,.15);border:1px solid rgba(124,58,237,.3);color:#a78bfa;padding:2px 8px;border-radius:10px;margin-left:6px;white-space:nowrap;">⟷ '+archLabel+'</span>';
       }
-      // 2. Stage badge
+      // 2. Stage badge — purple for BB stages, colored by cert level
       if(item.stage){
-        var stageCol=item.stage.includes('3')?'#c4b5fd':item.stage.includes('2')?'#a78bfa':'#7c3aed';
-        metaBadges+='<span style="font-size:10px;font-weight:700;background:rgba(124,58,237,.12);border:1px solid rgba(124,58,237,.25);color:'+stageCol+';padding:2px 8px;border-radius:10px;margin-left:6px;white-space:nowrap;">'+item.stage+'</span>';
+        var isCertLvl=/^(associate|professional|expert)$/i.test(item.stage);
+        var sBg,sBorder,sCol;
+        if(isCertLvl){
+          if(/professional/i.test(item.stage)){sBg="rgba(34,197,94,.12)";sBorder="rgba(34,197,94,.3)";sCol="#22c55e";}
+          else if(/expert/i.test(item.stage)){sBg="rgba(245,158,11,.12)";sBorder="rgba(245,158,11,.3)";sCol="#f59e0b";}
+          else{sBg="rgba(56,189,248,.12)";sBorder="rgba(56,189,248,.3)";sCol="#38bdf8";}
+        } else {
+          sCol=item.stage.includes("3")?"#c4b5fd":item.stage.includes("2")?"#a78bfa":"#7c3aed";
+          sBg="rgba(124,58,237,.12)";sBorder="rgba(124,58,237,.25)";
+        }
+        metaBadges+='<span style="font-size:10px;font-weight:700;background:'+sBg+';border:1px solid '+sBorder+';color:'+sCol+';padding:2px 8px;border-radius:10px;margin-left:6px;white-space:nowrap;">'+item.stage+'</span>';
       }
       // 3. Duration badge — always green, look up from CP_BB first
       var actualDur=item.dur;
@@ -2290,7 +2299,10 @@ async function cpGenerate(){
   });
   // Filter references to only portfolios that have gaps
   var bbGapPortfolios=gaps.filter(function(g){return g.type==='blackbelt';}).map(function(g){return g.portfolio;});
-  var certGapPortfolios=gaps.filter(function(g){return g.type==='careercert';}).map(function(g){return g.portfolio;});
+  var certGapPortfoliosDirect=gaps.filter(function(g){return g.type==='careercert';}).map(function(g){return g.portfolio;});
+  // Also include BB gap portfolios for cert recommendations (certs supplement BB toward PVI)
+  var certGapPortfolios=certGapPortfoliosDirect.slice();
+  bbGapPortfolios.forEach(function(p){if(certGapPortfolios.indexOf(p)<0)certGapPortfolios.push(p);});
 
   // Deduplicate certs by exam code before sending to AI
   var _seenCodes={};
@@ -2367,7 +2379,9 @@ async function cpGenerate(){
       +'TOTAL BB PTS NEEDED: '+g.gapPts.toFixed(1)+'\n\n';
   });
   certGapPortfolios.forEach(function(p){
-    var g=gaps.find(function(x){return x.portfolio===p&&x.type==='careercert';});
+    var g=gaps.find(function(x){return x.portfolio===p&&x.type==='careercert';})
+      ||gaps.find(function(x){return x.portfolio===p&&x.type==='blackbelt';});
+    if(!g)return;
     var assocCands=formatEligible(allEmpNames);
     var proCands=proEligible.length?formatEligible(proEligible):'(no employees with existing Professional cert)';
     outputTemplate+='** '+p+' Certification Plan (Target: '+g.gapPts.toFixed(1)+' pts)\n'
