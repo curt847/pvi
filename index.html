@@ -1778,7 +1778,7 @@ function cpRenderRoster(){
     // When filtering by portfolio, skip employees with no matching certs
     if(portF&&!pviCerts.length)return;
     var otherCerts=emp.certs.filter(function(c){return!c.isPVI;});
-    var totalPts=pviCerts.reduce(function(s,c){return s+c.points;},0);
+    var totalPts=(function(){var seen={};return pviCerts.reduce(function(s,c){if(seen[c.code])return s;seen[c.code]=true;return s+c.points;},0);})();
     // Find soonest expiry across all certs
     var allExpiries=emp.certs.filter(function(c){return c.expiryDate;}).map(function(c){return c.expiryDate;});
     var soonest=allExpiries.length?allExpiries.reduce(function(a,b){return a<b?a:b;}):null;
@@ -1797,7 +1797,7 @@ function cpRenderRoster(){
       if(pF&&emp.name!==pF)return;
       emp.certs.forEach(function(c){
         if(!c.isPVI||c.portfolio!==portF)return;
-        var ck=c.canonicalCode+'|'+c.portfolio;
+        var ck=c.canonicalCode;
         if(seenCanon[emp.name+'|'+ck])return;
         seenCanon[emp.name+'|'+ck]=true;
         if(c.level==='Expert')asExpert++;
@@ -2286,7 +2286,7 @@ async function cpGenerate(){
     return{name:emp.name,
       pviCerts:pviCerts.map(function(c){return{code:c.code,desc:c.desc,level:c.level,points:c.points,portfolio:c.portfolio};}),
       otherCerts:emp.certs.filter(function(c){return!c.isPVI;}).map(function(c){return c.code;}),
-      totalPVIPoints:pviCerts.reduce(function(s,c){return s+c.points;},0)};
+      totalPVIPoints:(function(){var seen={};return pviCerts.reduce(function(s,c){if(seen[c.code])return s;seen[c.code]=true;return s+c.points;},0);})()};
   });
   // Filter references to only portfolios that have gaps
   var bbGapPortfolios=gaps.filter(function(g){return g.type==='blackbelt';}).map(function(g){return g.portfolio;});
