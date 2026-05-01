@@ -2848,10 +2848,10 @@ function cpRunFreeformPlan(){
     body.innerHTML=cpFormatPlan(data.content[0].text);
     document.getElementById('cp-print-btn').style.display='';
     document.getElementById('cp-email-btn').style.display='';
-    if(btn){btn.disabled=false;btn.innerHTML='<span>btn.innerHTML='<span>&#10022;</span> AI Cert Plan'#10022;</span> What-If Cert Plan';}
+    if(btn){btn.disabled=false;btn.innerHTML='<span>&#10022;</span> What-If Cert Plan';}
   }).catch(function(err){
     body.innerHTML='<div class="cp-plain">Error: '+err.message+'</div>';
-    if(btn){btn.disabled=false;btn.innerHTML='<span>btn.innerHTML='<span>&#10022;</span> AI Cert Plan'#10022;</span> What-If Cert Plan';}
+    if(btn){btn.disabled=false;btn.innerHTML='<span>&#10022;</span> What-If Cert Plan';}
   });
 }
 
@@ -3043,7 +3043,7 @@ function cpRunManualPlan(){
     if(btn){btn.disabled=false;btn.innerHTML='<span>&#10022;</span> Regenerate Plan';}
   }).catch(function(err){
     body.innerHTML='<div class="cp-plain">Error: '+err.message+'</div>';
-    if(btn){btn.disabled=false;btn.innerHTML='<span>btn.innerHTML='<span>&#10022;</span> Generate Cert Plan'#10022;</span> What-If Cert Plan';}
+    if(btn){btn.disabled=false;btn.innerHTML='<span>&#10022;</span> What-If Cert Plan';}
   });
 }
 
