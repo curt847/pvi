@@ -1917,6 +1917,88 @@ function cpLoadKey(){
 }
 
 
+
+// ── CROSS-ARCH AWARE POST-PROCESSOR ─────────────────────────────────────────
+// After the AI responds, enforce portfolio targets by tracking running totals
+// across ALL sections, counting cross-arch items toward every portfolio they cover.
+function cpFilterByTargets(raw, bbTargets, certTargets) {
+  var lines = raw.split('\n');
+  var running = {}; // key = 'bb:Portfolio' or 'cert:Portfolio'
+  var isBBSec = false;
+  var result = [];
+
+  lines.forEach(function(line) {
+    var t = line.trim();
+    if (!t) { result.push(line); return; }
+
+    // Section header — update isBBSec flag, always keep
+    if (/^\*{1,2}[^*]/.test(t)) {
+      isBBSec = /black.?belt/i.test(t);
+      result.push(line);
+      return;
+    }
+
+    // Non-row lines (ELIGIBLE, LEVEL, TOTAL, etc.) always keep
+    if (t.indexOf('|') < 0) { result.push(line); return; }
+
+    // Parse pipe row
+    var parts = t.replace(/^\||\|$/g,'').split('|').map(function(s){return s.trim().replace(/\*\*/g,'');});
+    if (!parts[0] || /^[-\s]+$/.test(parts[0])) { result.push(line); return; }
+
+    // Find pts column
+    var ptsIdx = -1;
+    for (var i = 0; i < parts.length; i++) {
+      if (/^[\d.]+\s*pts?$/i.test(parts[i])) { ptsIdx = i; break; }
+    }
+    if (ptsIdx < 0) { result.push(line); return; }
+
+    var trainingName = parts.slice(0, ptsIdx).join(' ').trim();
+    var pts = parseFloat(parts[ptsIdx]);
+    if (!pts || isNaN(pts)) { result.push(line); return; }
+
+    // Look up ALL portfolios this training covers in CP_BB
+    var coveredPorts = [];
+    CP_BB.forEach(function(b) {
+      if (b['LM_TITLE'] === trainingName && coveredPorts.indexOf(b['PXP Portfolio']) < 0) {
+        coveredPorts.push(b['PXP Portfolio']);
+      }
+    });
+    // Fallback: use portfolio column from row (usually col 4 or 5)
+    if (!coveredPorts.length) {
+      for (var ci = ptsIdx+1; ci < parts.length; ci++) {
+        var col = parts[ci];
+        if (col && col !== '—' && !/^Stage/i.test(col) && !/^\d+min/i.test(col) && !/^[\d.]+\s*pts?/i.test(col)) {
+          // Split on + for cross-arch listed as "Collab + Security"
+          col.split('+').forEach(function(p){ var pp=p.trim(); if(pp&&coveredPorts.indexOf(pp)<0)coveredPorts.push(pp); });
+          break;
+        }
+      }
+    }
+
+    // Determine which target-portfolios still need pts
+    var prefix = isBBSec ? 'bb:' : 'cert:';
+    var targets = isBBSec ? bbTargets : certTargets;
+    var stillNeeded = coveredPorts.some(function(p) {
+      var tgt = targets[p] || 0;
+      if (!tgt) return false;
+      return (running[prefix+p] || 0) < tgt;
+    });
+
+    if (stillNeeded) {
+      // Credit pts to all covered portfolios
+      coveredPorts.forEach(function(p) {
+        if ((isBBSec ? bbTargets[p] : certTargets[p]) > 0) {
+          running[prefix+p] = (running[prefix+p] || 0) + pts;
+        }
+      });
+      result.push(line);
+    }
+    // else: this row pushes all its portfolios past target — drop it
+  });
+
+  return result.join('\n');
+}
+
 function cpFormatPlan(raw){
   // Strip any reasoning/preamble before the first ** section header
   var firstHdr=raw.indexOf('**');
@@ -3172,7 +3254,8 @@ function cpRunManualPlan(){
       messages:[{role:'user',content:prompt}]})
   }).then(function(r){return r.json();}).then(function(data){
     if(data.error)throw new Error(data.error.type+': '+data.error.message);
-    body.innerHTML=cpFormatPlan(data.content[0].text);
+    var filtered=cpFilterByTargets(data.content[0].text,bbTargets,certTargets);
+    body.innerHTML=cpFormatPlan(filtered);
     document.getElementById('cp-print-btn').style.display='';
     document.getElementById('cp-email-btn').style.display='';
     if(btn){btn.disabled=false;btn.innerHTML='<span>&#10022;</span> Regenerate Plan';}
