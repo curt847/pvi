@@ -433,7 +433,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
       <button class="btn btn-blue" id="cert-tab-btn" onclick="switchTab('certs')">🎓 Cert Planner</button>
       <button class="btn btn-ghost" id="benefits-btn">🏆 Benefits &amp; Thresholds</button>
       <div style="display:flex;align-items:center;gap:6px;border-left:1px solid var(--border);padding-left:10px;"><label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;">API Key</label><input id="cp-api-key" type="password" placeholder="sk-ant-..." style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:5px 10px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px;width:200px;outline:none;" /><button onclick="cpTestKey()" style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:5px 10px;color:var(--text);font-size:12px;font-family:'DM Sans',sans-serif;font-weight:700;cursor:pointer;white-space:nowrap;">Test</button><span id="cp-key-status" style="font-size:12px;font-weight:700;white-space:nowrap;"></span></div>
-      <button class="btn btn-ghost" id="reload-btn">↑ New File</button>
     </div>
   </header>
 
@@ -854,7 +853,6 @@ var BENEFITS={
 var allRows=[],months=[],selectedMonth='',whatIfMap={},partnerName='',beId='',chartFilter=null,shirtSize='S';
 
 // ── WIRE UP ──────────────────────────────────────────────────────────────────
-document.getElementById('reload-btn').addEventListener('click',function(){fi.click();});
 document.getElementById('wi-banner').addEventListener('click',resetAllWhatIf);
 document.getElementById('month-select').addEventListener('change',function(){selectedMonth=this.value;renderAll();});
 document.getElementById('sz-select').addEventListener('change',function(){shirtSize=this.value;renderAll();});
@@ -2356,22 +2354,23 @@ async function cpGenerate(){
 
   // BB eligible: anyone in bbEmployees (if BB file loaded), else same as proEligible
   var bbLoaded=Object.keys(bbEmployees).length>0;
-  var bbEligibleAll=bbLoaded?Object.keys(bbEmployees).sort():proEligible.slice();
-  // Restrict eligibility: must have ≥1 PVI cert pt OR ≥1 BB pt
+  var bbLoaded=Object.keys(bbEmployees).length>0;
+  // Compute qualified employees: must have ≥1 PVI cert pt OR ≥1 BB pt
   var qualifiedEmps=Object.values(cpEmployees).filter(function(emp){
     var certPts=(function(){var seen={};return emp.certs.filter(function(c){return c.isPVI;}).reduce(function(s,c){if(seen[c.code])return s;seen[c.code]=true;return s+c.points;},0);})();
-    var bbPts=bbEmployees[emp.name]?bbEmployees[emp.name].completions.reduce(function(s,c){return s+c.multiplier;},0):0;
-    return certPts>0||bbPts>0;
+    if(certPts>0)return true;
+    // Check BB pts with case-insensitive name match
+    var empNameLc=emp.name.toLowerCase();
+    var bbEmp=bbEmployees[emp.name]||(Object.keys(bbEmployees).reduce(function(found,k){return found||(k.toLowerCase()===empNameLc?bbEmployees[k]:null);},null));
+    var bbPts=bbEmp?bbEmp.completions.reduce(function(s,c){return s+(c.multiplier||0);},0):0;
+    return bbPts>0;
   }).map(function(e){return e.name;}).sort();
-  // Fall back to all employees if no one qualifies (e.g. no files loaded)
-  var allEmpNames=qualifiedEmps.length?qualifiedEmps:Object.keys(cpEmployees).sort();
-
-  // Pro eligible: qualified employees who hold a Professional cert
+  // Only fall back to ALL employees if no file has been loaded yet
+  var allEmpNames=qualifiedEmps.length>0?qualifiedEmps:Object.keys(cpEmployees).sort();
+  // Pro eligible: qualified employees who hold a Professional/Advanced cert
   proEligible=proEligible.filter(function(n){return allEmpNames.indexOf(n)>=0;});
-  // BB eligible: qualified employees
-  bbEligibleAll=bbEligibleAll.filter(function(n){return allEmpNames.indexOf(n)>=0;});
-  if(!bbEligibleAll.length)bbEligibleAll=allEmpNames.slice();
-
+  // BB eligible = all qualified employees
+  var bbEligibleAll=allEmpNames.slice();
   function formatEligible(arr){
     if(!arr.length)return'(none loaded)';
     var shown=arr.slice(0,10).join(', ');
