@@ -2391,6 +2391,8 @@ async function cpGenerate(){
 
   // Build output template — clean, no leaking STOP comments
   var outputTemplate='';
+  // Pre-compute which portfolios have cert reference entries
+  var certRefNoExpertPortfolios=CP_CERTS.filter(function(c){return c['Level Name']!=='Expert'&&c['Level Name']!=='Co-Marketing';}).map(function(c){return c['Portfolio'];}).filter(function(p,i,a){return a.indexOf(p)===i;});
   bbGapPortfolios.forEach(function(p){
     var g=gaps.find(function(x){return x.portfolio===p&&x.type==='blackbelt';});
     var bbCands=formatEligible(bbEligibleAll);
@@ -2422,8 +2424,6 @@ async function cpGenerate(){
   });
 
   // Remove Expert from cert reference entirely
-  // Pre-compute which portfolios have cert entries (for Pro cert template above)
-  var certRefNoExpertPortfolios=CP_CERTS.filter(function(c){return c['Level Name']!=='Expert'&&c['Level Name']!=='Co-Marketing';}).map(function(c){return c['Portfolio'];}).filter(function(p,i,a){return a.indexOf(p)===i;});
   var certRefNoExpert=CP_CERTS.filter(function(c){
     if(c['Level Name']==='Expert')return false;
     if(c['Level Name']==='Co-Marketing')return false; // not a technical cert
