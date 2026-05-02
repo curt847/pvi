@@ -1943,10 +1943,10 @@ function cpEnforceStagePrerequisites(rawText) {
     var name = parts.slice(0,ptsIdx).join(' ').trim();
     var assignee = parts[parts.length-1];
     // Extract stage number from name
-    var stageMatch = name.match(/Stage\s*(\d)\s*$/i);
+    var stageMatch = name.match(/Stage\s*(\d)/i); // match Stage N anywhere in name
     if (!stageMatch) return;
     var stageNum = parseInt(stageMatch[1]);
-    var trackBase = name.replace(/\s*Stage\s*\d+\s*$/i,'').trim();
+    var trackBase = name.replace(/\s*-?\s*Stage\s*\d+.*/i,'').trim();
     var key = assignee+'::'+trackBase;
     if (!planned[key]) planned[key] = {};
     planned[key][stageNum] = true;
@@ -1958,10 +1958,10 @@ function cpEnforceStagePrerequisites(rawText) {
     var emp = bbEmployees[empName];
     if (!emp || !emp.completions) return;
     emp.completions.forEach(function(c) {
-      var stageMatch = c.name && c.name.match(/Stage\s*(\d)\s*$/i);
+      var stageMatch = c.name && c.name.match(/Stage\s*(\d)/i);
       if (!stageMatch) return;
       var stageNum = parseInt(stageMatch[1]);
-      var trackBase = c.name.replace(/\s*Stage\s*\d+\s*$/i,'').trim();
+      var trackBase = c.name.replace(/\s*-?\s*Stage\s*\d+.*/i,'').trim();
       var key = empName+'::'+trackBase;
       if (!planned[key]) planned[key] = {};
       planned[key][stageNum] = true; // mark as available (already done)
@@ -1978,11 +1978,11 @@ function cpEnforceStagePrerequisites(rawText) {
     if (ptsIdx < 0) return true;
     var name = parts.slice(0,ptsIdx).join(' ').trim();
     var assignee = parts[parts.length-1];
-    var stageMatch = name.match(/Stage\s*(\d)\s*$/i);
+    var stageMatch = name.match(/Stage\s*(\d)/i);
     if (!stageMatch) return true; // no stage = keep
     var stageNum = parseInt(stageMatch[1]);
     if (stageNum <= 1) return true; // Stage 1 always OK
-    var trackBase = name.replace(/\s*Stage\s*\d+\s*$/i,'').trim();
+    var trackBase = name.replace(/\s*-?\s*Stage\s*\d+.*/i,'').trim();
     var key = assignee+'::'+trackBase;
     var stages = planned[key] || {};
     // Check prerequisites
@@ -2409,7 +2409,7 @@ async function cpGenerate(){
       +'TOTAL BB PTS NEEDED: '+g.gapPts.toFixed(1)+'\n\n';
     // Append cert recommendations for this portfolio if Pro-eligible employees exist
     if(proEligible.length&&certRefNoExpertPortfolios.indexOf(p)>=0){
-      outputTemplate+='** '+p+' Professional Cert Recommendations (Optional supplement)\n'
+      outputTemplate+='** '+p+' Certification Plan\n'
         +'ELIGIBLE CANDIDATES: '+formatEligible(proEligible)+'\n'
         +'LEVEL: Professional\n'
         +'| [Real CCNP exam for '+p+'] | 3 pts | Professional | — | '+p+' | '+proEligible[0]+' |\n'
@@ -2417,8 +2417,9 @@ async function cpGenerate(){
         +'| [Real CCNA exam for '+p+'] | 1 pts | Associate | — | '+p+' | '+allEmpNames[0]+' |\n\n';
     }
   });
-  // Direct careercert gaps still get their own section
+  // Direct careercert gaps: add section only if portfolio not already covered by BB cert section above
   certGapPortfoliosDirect.forEach(function(p){
+    if(bbGapPortfolios.indexOf(p)>=0&&proEligible.length&&certRefNoExpertPortfolios.indexOf(p)>=0)return; // already added
     var g=gaps.find(function(x){return x.portfolio===p&&x.type==='careercert';});
     if(!g)return;
     outputTemplate+='** '+p+' Certification Plan (Target: '+g.gapPts.toFixed(1)+' pts)\n'
