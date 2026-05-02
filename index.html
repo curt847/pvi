@@ -1946,7 +1946,7 @@ function cpEnforceStagePrerequisites(rawText) {
     var stageMatch = name.match(/Stage\s*(\d)/i); // match Stage N anywhere in name
     if (!stageMatch) return;
     var stageNum = parseInt(stageMatch[1]);
-    var trackBase = name.replace(/\s*-?\s*Stage\s*\d+.*/i,'').trim();
+    var trackBase = name.replace(/\s*-?\s*Stage\s*\d+.*/i,'').replace(/[-\s]+/g,' ').trim().toLowerCase();
     var key = assignee+'::'+trackBase;
     if (!planned[key]) planned[key] = {};
     planned[key][stageNum] = true;
@@ -1961,7 +1961,7 @@ function cpEnforceStagePrerequisites(rawText) {
       var stageMatch = c.name && c.name.match(/Stage\s*(\d)/i);
       if (!stageMatch) return;
       var stageNum = parseInt(stageMatch[1]);
-      var trackBase = c.name.replace(/\s*-?\s*Stage\s*\d+.*/i,'').trim();
+      var trackBase = c.name.replace(/\s*-?\s*Stage\s*\d+.*/i,'').replace(/[-\s]+/g,' ').trim().toLowerCase();
       var key = empName+'::'+trackBase;
       if (!planned[key]) planned[key] = {};
       planned[key][stageNum] = true; // mark as available (already done)
@@ -1982,7 +1982,7 @@ function cpEnforceStagePrerequisites(rawText) {
     if (!stageMatch) return true; // no stage = keep
     var stageNum = parseInt(stageMatch[1]);
     if (stageNum <= 1) return true; // Stage 1 always OK
-    var trackBase = name.replace(/\s*-?\s*Stage\s*\d+.*/i,'').trim();
+    var trackBase = name.replace(/\s*-?\s*Stage\s*\d+.*/i,'').replace(/[-\s]+/g,' ').trim().toLowerCase();
     var key = assignee+'::'+trackBase;
     var stages = planned[key] || {};
     // Check prerequisites
@@ -2409,7 +2409,8 @@ async function cpGenerate(){
       +'TOTAL BB PTS NEEDED: '+g.gapPts.toFixed(1)+'\n\n';
     // Append cert recommendations for this portfolio if Pro-eligible employees exist
     if(proEligible.length&&certRefNoExpertPortfolios.indexOf(p)>=0){
-      outputTemplate+='** '+p+' Certification Plan\n'
+    var certTgt=gaps.find(function(x){return x.portfolio===p&&x.type==='careercert';});var certTgtPts=certTgt?certTgt.gapPts:g.gapPts;
+      outputTemplate+='** '+p+' Certification Plan (Target: '+certTgtPts.toFixed(1)+' pts)\n'
         +'ELIGIBLE CANDIDATES: '+formatEligible(proEligible)+'\n'
         +'LEVEL: Professional\n'
         +'| [Real CCNP exam for '+p+'] | 3 pts | Professional | — | '+p+' | '+proEligible[0]+' |\n'
@@ -2481,7 +2482,18 @@ async function cpGenerate(){
     var data=await resp.json();
     if(data.error)throw new Error(data.error.type+': '+data.error.message);
     console.log('[CertPlanner] Raw AI response:', data.content[0].text);
-    var _wiBB={},_wiCert={};gaps.forEach(function(g){if(g.type==='blackbelt'){_wiBB[g.portfolio]=g.gapPts;if(!_wiCert[g.portfolio])_wiCert[g.portfolio]=g.gapPts;}else _wiCert[g.portfolio]=g.gapPts;});var wiStageOk=cpEnforceStagePrerequisites(data.content[0].text);var wiFiltered=cpFilterByTargets(wiStageOk,_wiBB,_wiCert);
+    var _wiBB={},_wiCert={};gaps.forEach(function(g){if(g.type==='blackbelt'){_wiBB[g.portfolio]=g.gapPts;if(!_wiCert[g.portfolio])_wiCert[g.portfolio]=g.gapPts;}else _wiCert[g.portfolio]=g.gapPts;});
+    var wiStageOk=cpEnforceStagePrerequisites(data.content[0].text);
+    // Filter cert rows to only qualified employees
+    var wiCertFiltered=wiStageOk.split('\n').map(function(line){
+      if(line.indexOf('|')<0)return line;
+      var parts=line.replace(/^\||\|$/g,'').split('|').map(function(s){return s.trim();});
+      var assignee=parts[parts.length-1];
+      var isBBRow=/black.?belt/i.test(parts[0]);
+      if(!isBBRow&&assignee&&allEmpNames.indexOf(assignee)<0)return '';
+      return line;
+    }).join('\n');
+    var wiFiltered=cpFilterByTargets(wiCertFiltered,_wiBB,_wiCert);
     body.innerHTML=cpFormatPlan(wiFiltered);
     document.getElementById('cp-print-btn').style.display='';
     document.getElementById('cp-email-btn').style.display='';
