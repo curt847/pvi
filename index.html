@@ -1922,6 +1922,27 @@ function cpLoadKey(){
 
 
 
+
+// ── ASSIGNEE REASSIGNER ───────────────────────────────────────────────────────
+// AI frequently ignores eligible candidates list. This replaces ALL assignees
+// with actual qualified employees, rotating through them.
+function cpReassignToQualified(rawText, qualifiedList) {
+  if (!qualifiedList || !qualifiedList.length) return rawText;
+  var idx = 0;
+  return rawText.split('\n').map(function(line) {
+    if (line.indexOf('|') < 0) return line;
+    var parts = line.replace(/^\||\|$/g,'').split('|').map(function(s){return s.trim();});
+    if (parts.length < 2) return line;
+    // Find pts to confirm this is a data row not a header
+    var hasPts = parts.some(function(p){return /^[\d.]+\s*pts?$/i.test(p);});
+    if (!hasPts) return line;
+    // Replace last column (assignee) with qualified employee
+    parts[parts.length-1] = qualifiedList[idx % qualifiedList.length];
+    idx++;
+    return '| '+parts.join(' | ')+' |';
+  }).join('\n');
+}
+
 // ── STAGE PREREQUISITE ENFORCER ──────────────────────────────────────────────
 // Remove Stage 2 rows where Stage 1 isn't recommended (or already completed by that employee)
 // Remove Stage 3 rows where Stage 1 AND Stage 2 aren't both present
@@ -2483,17 +2504,9 @@ async function cpGenerate(){
     if(data.error)throw new Error(data.error.type+': '+data.error.message);
     console.log('[CertPlanner] Raw AI response:', data.content[0].text);
     var _wiBB={},_wiCert={};gaps.forEach(function(g){if(g.type==='blackbelt'){_wiBB[g.portfolio]=g.gapPts;if(!_wiCert[g.portfolio])_wiCert[g.portfolio]=g.gapPts;}else _wiCert[g.portfolio]=g.gapPts;});
-    var wiStageOk=cpEnforceStagePrerequisites(data.content[0].text);
-    // Filter cert rows to only qualified employees
-    var wiCertFiltered=wiStageOk.split('\n').map(function(line){
-      if(line.indexOf('|')<0)return line;
-      var parts=line.replace(/^\||\|$/g,'').split('|').map(function(s){return s.trim();});
-      var assignee=parts[parts.length-1];
-      var isBBRow=/black.?belt/i.test(parts[0]);
-      if(!isBBRow&&assignee&&allEmpNames.indexOf(assignee)<0)return '';
-      return line;
-    }).join('\n');
-    var wiFiltered=cpFilterByTargets(wiCertFiltered,_wiBB,_wiCert);
+    var wiReassigned=cpReassignToQualified(data.content[0].text,allEmpNames);
+    var wiStageOk=cpEnforceStagePrerequisites(wiReassigned);
+    var wiFiltered=cpFilterByTargets(wiStageOk,_wiBB,_wiCert);
     body.innerHTML=cpFormatPlan(wiFiltered);
     document.getElementById('cp-print-btn').style.display='';
     document.getElementById('cp-email-btn').style.display='';
@@ -3519,7 +3532,8 @@ function cpRunManualPlan(){
       messages:[{role:'user',content:prompt}]})
   }).then(function(r){return r.json();}).then(function(data){
     if(data.error)throw new Error(data.error.type+': '+data.error.message);
-    var stageOk=cpEnforceStagePrerequisites(data.content[0].text);
+    var manReassigned=cpReassignToQualified(data.content[0].text,focusUsers.map(function(u){return u.name;}));
+    var stageOk=cpEnforceStagePrerequisites(manReassigned);
     var filtered=cpFilterByTargets(stageOk,bbTargets,certTargets);
     var summary=cpBuildPortfolioSummary(filtered,bbTargets,certTargets);
     body.innerHTML=summary+cpFormatPlan(filtered);
