@@ -2253,11 +2253,17 @@ function cpFormatPlan(raw){
       if(sec.items.length)o+='<hr class="cp-divider"><div class="cp-items-label">Recommended Options</div>';
     }
     if(sec.plain&&sec.plain.length)o+='<div class="cp-plain">'+sec.plain.join('<br>')+'</div>';
-    var lastLevel=null,seenNames={};
+    var lastLevel=null,seenNames={},bbHeaderShown=false;
     sec.items.forEach(function(item){
       if(seenNames[item.name.toLowerCase()])return;
       seenNames[item.name.toLowerCase()]=true;
-      if(item.level&&item.level!==lastLevel){
+      // Show BLACK BELT header before first BB item
+      var isItemBB=!item.level||/^stage/i.test(item.stage||'');
+      if(isItemBB&&!bbHeaderShown){
+        o+='<div class="cp-level-label" style="color:#a78bfa;border-color:rgba(124,58,237,.3);">Black Belt</div>';
+        bbHeaderShown=true;
+      }
+      if(!isItemBB&&item.level&&item.level!==lastLevel){
         o+='<div class="cp-level-label">'+item.level+'</div>';
         lastLevel=item.level;
       }
