@@ -2371,6 +2371,14 @@ async function cpGenerate(){
   proEligible=proEligible.filter(function(n){return allEmpNames.indexOf(n)>=0;});
   // BB eligible = all qualified employees
   var bbEligibleAll=allEmpNames.slice();
+  // ── DEBUG LOGGING ────────────────────────────────────────────────────
+  console.log('[CertPlanner] cpEmployees count:', Object.keys(cpEmployees).length);
+  console.log('[CertPlanner] qualifiedEmps:', qualifiedEmps);
+  console.log('[CertPlanner] bbEligibleAll:', bbEligibleAll);
+  console.log('[CertPlanner] proEligible:', proEligible);
+  console.log('[CertPlanner] gaps:', gaps.map(function(g){return g.portfolio+' '+g.type+' +'+g.gapPts;}));
+  // ── END DEBUG ─────────────────────────────────────────────────────────
+
   function formatEligible(arr){
     if(!arr.length)return'(none loaded)';
     var shown=arr.slice(0,10).join(', ');
@@ -2460,6 +2468,8 @@ async function cpGenerate(){
     prompt='No what-if gaps set. Respond with one line only: No additional certifications required.';
   }
   try{
+    console.log('[CertPlanner] Sending prompt (first 500 chars):', prompt.substring(0,500));
+    console.log('[CertPlanner] Full outputTemplate:', outputTemplate);
     var resp=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
@@ -2469,6 +2479,7 @@ async function cpGenerate(){
     });
     var data=await resp.json();
     if(data.error)throw new Error(data.error.type+': '+data.error.message);
+    console.log('[CertPlanner] Raw AI response:', data.content[0].text);
     var _wiBB={},_wiCert={};gaps.forEach(function(g){if(g.type==='blackbelt'){_wiBB[g.portfolio]=g.gapPts;if(!_wiCert[g.portfolio])_wiCert[g.portfolio]=g.gapPts;}else _wiCert[g.portfolio]=g.gapPts;});var wiStageOk=cpEnforceStagePrerequisites(data.content[0].text);var wiFiltered=cpFilterByTargets(wiStageOk,_wiBB,_wiCert);
     body.innerHTML=cpFormatPlan(wiFiltered);
     document.getElementById('cp-print-btn').style.display='';
