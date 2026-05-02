@@ -1968,7 +1968,7 @@ function cpEnforceStagePrerequisites(rawText) {
     if (!stageMatch) return;
     var stageNum = parseInt(stageMatch[1]);
     var trackBase = name.replace(/\s*-?\s*Stage\s*\d+.*/i,'').replace(/[-\s]+/g,' ').trim().toLowerCase();
-    var key = assignee+'::'+trackBase;
+    var key = trackBase; // track-level: Stage 1 by anyone unlocks Stage 2 for anyone
     if (!planned[key]) planned[key] = {};
     planned[key][stageNum] = true;
   });
@@ -1983,7 +1983,7 @@ function cpEnforceStagePrerequisites(rawText) {
       if (!stageMatch) return;
       var stageNum = parseInt(stageMatch[1]);
       var trackBase = c.name.replace(/\s*-?\s*Stage\s*\d+.*/i,'').replace(/[-\s]+/g,' ').trim().toLowerCase();
-      var key = empName+'::'+trackBase;
+      var key = trackBase;
       if (!planned[key]) planned[key] = {};
       planned[key][stageNum] = true; // mark as available (already done)
     });
@@ -2004,7 +2004,7 @@ function cpEnforceStagePrerequisites(rawText) {
     var stageNum = parseInt(stageMatch[1]);
     if (stageNum <= 1) return true; // Stage 1 always OK
     var trackBase = name.replace(/\s*-?\s*Stage\s*\d+.*/i,'').replace(/[-\s]+/g,' ').trim().toLowerCase();
-    var key = assignee+'::'+trackBase;
+    var key = trackBase;
     var stages = planned[key] || {};
     // Check prerequisites
     if (stageNum === 2 && !stages[1]) return false; // need Stage 1
@@ -2125,7 +2125,7 @@ function cpFilterByTargets(raw, bbTargets, certTargets) {
     if (!coveredPorts.length) {
       for (var ci = ptsIdx+1; ci < parts.length; ci++) {
         var col = parts[ci];
-        if (col && col !== '—' && !/^Stage/i.test(col) && !/^\d+min/i.test(col) && !/^[\d.]+\s*pts?/i.test(col)) {
+        if (col && col !== '—' && !/^Stage/i.test(col) && !/^\d+min/i.test(col) && !/^[\d.]+\s*pts?/i.test(col) && !/^(associate|professional|expert|advanced|foundational|industry|customer success|co-marketing)$/i.test(col)) {
           // Split on + for cross-arch listed as "Collab + Security"
           col.split('+').forEach(function(p){ var pp=p.trim(); if(pp&&coveredPorts.indexOf(pp)<0)coveredPorts.push(pp); });
           break;
