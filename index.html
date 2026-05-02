@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Cisco PVI and Certification Planner</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.20.3/xlsx.full.min.js"></script>
 <script>
 // ── PEAK PVI SCORES ──────────────────────────────────────────────────────────
 function getBestMonth(portfolio){
@@ -862,7 +862,7 @@ document.getElementById('summary-btn').addEventListener('click',function(){build
 function handleFile(f){
   var r=new FileReader();
   r.onload=function(e){
-    try{var wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+    try{var wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',WTF:false,cellNF:false});
       parseData(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''}));
     }catch(err){alert('Error: '+err.message);}
   };r.readAsArrayBuffer(f);
@@ -1656,7 +1656,7 @@ function cpHandleFile(file){
   var reader=new FileReader();
   reader.onload=function(e){
     try{
-      var wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true});
+      var wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true,WTF:false});
       _stagedPersonnel=file;
       _stagedPersonnelRows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:null});
       var dz=document.getElementById('cp-drop');
@@ -2808,7 +2808,7 @@ function cpPrintRoster(){
     var reader=new FileReader();
     reader.onload=function(e){
       try{
-        var wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true});
+        var wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true,WTF:false});
         var rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:null});
         processData(rows);
       }catch(err){alert('Error reading '+uploadedDPV.name+': '+err.message);}
@@ -2824,7 +2824,7 @@ function cpHandleBBFile(file){
   var reader=new FileReader();
   reader.onload=function(e){
     try{
-      var wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true});
+      var wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true,WTF:false});
       var rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:null});
       if(!rows||!rows.length){alert('Black Belt file appears empty.');return;}
       var keys=Object.keys(rows[0]);
