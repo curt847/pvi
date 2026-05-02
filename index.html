@@ -2478,8 +2478,8 @@ async function cpGenerate(){
     +'BB STAGE RULES:\n'
     +'- Only recommend Stage 2 if Stage 1 of the same track is also in this plan.\n'
     +'- Only recommend Stage 3 if Stage 1 AND Stage 2 of the same track are also in this plan.\n'
-    +'- Duration ≤120min is a HARD LIMIT. Never pick any training over 120 minutes if a shorter alternative exists for that portfolio.\n\n'
-    +'BB PRIORITY: 1) Cross-arch first 2) Duration ≤120min HARD LIMIT — never pick a training over 120min if a shorter one exists 3) Sequential stages in same track 4) Stage 1 for standalones.\n'
+    +'- Prefer ≤120min trainings. Include longer ones only when no short alternative exists for that portfolio.\n\n'
+    +'BB PRIORITY: 1) Cross-arch first 2) Shortest duration — strongly prefer ≤120min trainings but include longer ones when no short option exists for that portfolio 3) Sequential stages in same track 4) Stage 1 for standalones.\n'
     +'CERT PRIORITY: Cross-arch first → Associate before Professional.\n'
     +'CROSS-ARCH: [CROSS-ARCH] items count toward every listed portfolio. Stop a portfolio once its total >= target.\n\n'
     +(bbRef?'BB REFERENCE:\n'+bbRef:'')
@@ -3439,12 +3439,13 @@ function cpRunManualPlan(){
   var _seenBB={};
   var _bbFiltered=CP_BB.filter(function(b){
     if(bbPortfolios.indexOf(b['PXP Portfolio'])<0)return false;
-    // Only include tracks that match at least one employee's role
-    var isSalesTrack=salesTracks.test(b['TRACK']||'');
-    var isTechTrack=techTracks.test(b['TRACK']||'');
-    var isNeutral=!isSalesTrack&&!isTechTrack;
-    if(isSalesTrack&&!hasSales&&!isNeutral)return false;
-    if(isTechTrack&&!hasTech&&!isNeutral)return false;
+    // Filter by role only when there are clear role-specific tracks
+    // If only Sales employees: exclude pure Technical/Deployment/Support tracks
+    // If only Technical employees: exclude pure Sales tracks (but keep Pre-Sales & neutral)
+    var isSalesOnly=/^sales$/i.test(b['TRACK']||''); // exactly 'Sales'
+    var isTechOnly=/^(deployment|support)$/i.test(b['TRACK']||''); // exactly Technical-only
+    if(isSalesOnly&&!hasSales&&hasTech)return false; // skip pure Sales when tech-only team
+    if(isTechOnly&&!hasTech&&hasSales)return false; // skip pure Deployment/Support when sales-only team
     var k=b['LM_TITLE']+'|'+b['PXP Portfolio'];if(_seenBB[k])return false;_seenBB[k]=true;return true;
   }).sort(function(a,b){
     // Cross-arch first, then shortest duration, then stage
@@ -3506,7 +3507,7 @@ function cpRunManualPlan(){
     +'- Only recommend Stage 2 of a track if Stage 1 of that SAME track is also included in this plan.\n'
     +'- Only recommend Stage 3 of a track if BOTH Stage 1 AND Stage 2 of that same track are also included in this plan.\n'
     +'- "Same track" means same base training name, e.g. "Black Belt Cisco Spaces Presales" Stages 1/2/3 are one track.\n\n'
-    +'BB PRIORITY: 1) Cross-arch first 2) Duration ≤120min HARD LIMIT — never pick a training over 120min if a shorter one exists 3) Sequential stages in same track 4) Stage 1 for standalones.\n'
+    +'BB PRIORITY: 1) Cross-arch first 2) Shortest duration — strongly prefer ≤120min trainings but include longer ones when no short option exists for that portfolio 3) Sequential stages in same track 4) Stage 1 for standalones.\n'
     +'CERT PRIORITY: 1) Cross-arch first 2) Associate before Professional.\n\n'
     +'BB REFERENCE:\n'+bbRef+'\n\n'
     +(certRef?'CERT REFERENCE:\n'+certRef+'\n\n':'')
