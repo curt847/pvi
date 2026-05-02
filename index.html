@@ -2127,7 +2127,7 @@ function cpFilterByTargets(raw, bbTargets, certTargets) {
         var col = parts[ci];
         if (col && col !== '—' && !/^Stage/i.test(col) && !/^\d+min/i.test(col) && !/^[\d.]+\s*pts?/i.test(col) && !/^(associate|professional|expert|advanced|foundational|industry|customer success|co-marketing)$/i.test(col)) {
           // Split on + for cross-arch listed as "Collab + Security"
-          col.split('+').forEach(function(p){ var pp=p.trim(); if(pp&&coveredPorts.indexOf(pp)<0)coveredPorts.push(pp); });
+          col.split('+').forEach(function(p){ var pp=p.trim().replace(/^\[|\]$/g,''); if(pp&&coveredPorts.indexOf(pp)<0)coveredPorts.push(pp); });
           break;
         }
       }
@@ -3538,9 +3538,14 @@ function cpRunManualPlan(){
       messages:[{role:'user',content:prompt}]})
   }).then(function(r){return r.json();}).then(function(data){
     if(data.error)throw new Error(data.error.type+': '+data.error.message);
+    console.log('[Manual] Raw AI:', data.content[0].text.substring(0,600));
     var manReassigned=cpReassignToQualified(data.content[0].text,focusUsers.map(function(u){return u.name;}));
+    console.log('[Manual] After reassign:', manReassigned.substring(0,400));
     var stageOk=cpEnforceStagePrerequisites(manReassigned);
+    console.log('[Manual] After stage check:', stageOk.substring(0,400));
     var filtered=cpFilterByTargets(stageOk,bbTargets,certTargets);
+    console.log('[Manual] After target filter:', filtered.substring(0,400));
+    console.log('[Manual] bbTargets:', JSON.stringify(bbTargets), 'certTargets:', JSON.stringify(certTargets));
     var summary=cpBuildPortfolioSummary(filtered,bbTargets,certTargets);
     body.innerHTML=summary+cpFormatPlan(filtered);
     document.getElementById('cp-print-btn').style.display='';
