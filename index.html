@@ -522,8 +522,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
         <button class="cp-gen-btn" id="cp-gen-btn" onclick="cpGenerate()" style="background:linear-gradient(135deg,#d97706 0%,#b45309 100%);"><span>&#10022;</span> What-If Cert Plan</button>
         <button class="cp-gen-btn" id="cp-manual-btn" onclick="cpShowManualModal()" style="background:linear-gradient(135deg,#0284c7 0%,#7c3aed 100%);"><span>&#9998;</span> Manual Cert Plan</button>
         <span style="margin-left:auto;display:flex;align-items:center;gap:14px;">
-          <a href="https://docs.google.com/spreadsheets/d/1p539_R4GoWBqozFo1brP9TfSUBp1RSWV/edit?usp=drive_link" target="_blank" title="Professional Certifications reference spreadsheet" style="font-size:11px;color:var(--muted);text-decoration:none;display:flex;align-items:center;gap:4px;opacity:.4;transition:opacity .15s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='.4'">&#128196; Pro Certs</a>
-          <a href="https://docs.google.com/spreadsheets/d/18A16lxbUWJfjf-kmFZ4U9c87vwboZSWl/edit?usp=drive_link" target="_blank" title="Black Belt Training reference spreadsheet" style="font-size:11px;color:var(--muted);text-decoration:none;display:flex;align-items:center;gap:4px;opacity:.4;transition:opacity .15s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='.4'">&#129355; Black Belt</a>
+          <a href="https://docs.google.com/spreadsheets/d/1p539_R4GoWBqozFo1brP9TfSUBp1RSWV/export?format=xlsx" target="_blank" title="Professional Certifications reference spreadsheet" style="font-size:11px;color:var(--muted);text-decoration:none;display:flex;align-items:center;gap:4px;opacity:.4;transition:opacity .15s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='.4'">&#128196; Pro Certs</a>
+          <a href="https://docs.google.com/spreadsheets/d/18A16lxbUWJfjf-kmFZ4U9c87vwboZSWl/export?format=xlsx" target="_blank" title="Black Belt Training reference spreadsheet" style="font-size:11px;color:var(--muted);text-decoration:none;display:flex;align-items:center;gap:4px;opacity:.4;transition:opacity .15s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='.4'">&#129355; Black Belt</a>
         </span>
         <!-- FREEFORM BUTTON REMOVED -->
         <div style="font-size:13px;color:var(--muted);display:none;" id="cp-gen-sub"></div>
@@ -2449,8 +2449,12 @@ async function cpGenerate(){
     +(certRefNoExpert?'\n\nCERT REFERENCE (Associate and Professional only):\n'+certRefNoExpert:'')
     +'\n\nEMPLOYEE STATUS:\n'+JSON.stringify(empSummary,null,1)
     +'\n\n'+empProStatus
-    +'\n\nASSIGNMENT: Every row ends with one assignee. Spread across employees inversely proportional to current pts.\n\n'
-    +'OUTPUT FORMAT:\n'+outputTemplate.trim();
+    +'\n\nASSIGNMENT RULES:\n'
+    +'- Every row ends with exactly one assignee name from the ELIGIBLE CANDIDATES list.\n'
+    +'- Copy ELIGIBLE CANDIDATES lines EXACTLY as written — never replace them with generic text like "All employees".\n'
+    +'- Employees with fewer current pts in that portfolio get more assignments (inversely proportional).\n'
+    +'- Keep adding rows until each portfolio running total >= its target. Do not stop early.\n\n'
+    +'OUTPUT FORMAT (copy section headers and ELIGIBLE CANDIDATES lines EXACTLY as shown — only fill in the rows):\n'+outputTemplate.trim();
 
   if(!dpvLoaded||!hasGaps){
     prompt='No what-if gaps set. Respond with one line only: No additional certifications required.';
@@ -2460,7 +2464,7 @@ async function cpGenerate(){
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:4000,
-        system:'You are a Cisco 360 Partner Program expert. Output ONLY the pipe-delimited certification plan. Do not write any reasoning, analysis, thinking, or explanation. Begin your response directly with the first ** section header. Never output anything before the first ** header.',
+        system:'You are a Cisco 360 Partner Program expert. Output ONLY the pipe-delimited plan. Rules: (1) Copy every ** section header and ELIGIBLE CANDIDATES line EXACTLY as given in the prompt — do not paraphrase or replace them. (2) Only fill in the pipe-delimited rows. (3) Keep adding rows until every portfolio running total reaches its target — never stop early. (4) No prose, no reasoning, no explanation.',
         messages:[{role:'user',content:prompt}]})
     });
     var data=await resp.json();
