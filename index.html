@@ -1948,7 +1948,9 @@ function cpReassignToQualified(rawText, qualifiedList) {
 // each training to a role-eligible person. Within each role pool, balances by
 // TOTAL MINUTES assigned so far (not just count) so a person with one 400-min
 // training doesn't keep getting more on top of someone with three 5-min ones.
-function cpReassignByRole(rawText, focusUsers) {
+// onlyTBD: when true, existing non-TBD assignees are preserved (their minutes
+// still count toward balancing); only rows with assignee 'TBD' are reassigned.
+function cpReassignByRole(rawText, focusUsers, onlyTBD) {
   if (!focusUsers || !focusUsers.length) return rawText;
   var salesPeople = focusUsers.filter(function(u){return u.role==='Sales';}).map(function(u){return u.name;});
   var techPeople  = focusUsers.filter(function(u){return u.role==='Technical';}).map(function(u){return u.name;});
@@ -2017,6 +2019,16 @@ function cpReassignByRole(rawText, focusUsers) {
         var m = parts[j].match(/^(\d+)\s*min$/i);
         if (m) { dur = parseInt(m[1]); break; }
       }
+    }
+    var currentAssignee = parts[parts.length-1];
+    // In onlyTBD mode: keep existing assignees, but still credit their minutes
+    // for balancing. Only rows with TBD/blank get reassigned.
+    var isTBD = !currentAssignee || /^(TBD|N\/A|—|-)$/i.test(currentAssignee);
+    if (onlyTBD && !isTBD) {
+      if (allPeople.indexOf(currentAssignee) >= 0) {
+        minutes[currentAssignee] = (minutes[currentAssignee]||0) + (dur||0);
+      }
+      return line;
     }
     var assignee = pickFor(track, dur);
     if (assignee === null) return null;
@@ -2237,6 +2249,164 @@ function cpFilterByTargets(raw, bbTargets, certTargets) {
   });
 
   return result.join('\n');
+}
+
+// ── BLACK-BELT TOP-UP ────────────────────────────────────────────────────────
+// If the AI-generated plan is short of any BB target, scan CP_BB for the best
+// next item (cross-arch first, shortest duration, role-eligible, not already
+// in plan, stage prereqs satisfied) and add rows until each target is met or
+// no more eligible items exist. Returns the augmented plan text.
+function cpTopUpBBPlan(planText, bbTargets, focusUsers) {
+  if (typeof CP_BB === 'undefined' || !CP_BB || !CP_BB.length) return planText;
+  if (!focusUsers || !focusUsers.length) return planText;
+
+  var hasSales = focusUsers.some(function(u){return u.role==='Sales';});
+  var hasTech  = focusUsers.some(function(u){return u.role==='Technical';});
+
+  function classifyTrack(track) {
+    var t = (track||'').toLowerCase();
+    var isSales = /sales|pre.?sales|presales|marketeer|business/.test(t) && !/deployment|support|engineer/.test(t);
+    var isTech  = /deployment|support|\bse\b|technical|engineer|operations|\bcx\b/.test(t);
+    if (/^sales$/i.test(track||'')) isSales = true;
+    return {isSales:isSales, isTech:isTech};
+  }
+  function trackHasEligibleRole(track) {
+    var c = classifyTrack(track);
+    if (c.isSales && !c.isTech) return hasSales;
+    if (c.isTech && !c.isSales) return hasTech;
+    return hasSales || hasTech; // neutral or both
+  }
+
+  // Parse current plan: find which portfolios are how short; collect existing track-stage signatures.
+  function parsePlan(text) {
+    var lines = text.split('\n');
+    var totals = {}; // port -> running pts in BB section
+    var planned = {}; // base track lowercased -> {1,2,3} stages present
+    var existingNames = {}; // training name lowercased -> true
+    var inBB = false;
+    lines.forEach(function(line){
+      var t = line.trim();
+      if (/^\*{1,2}[^*]/.test(t)) { inBB = /black.?belt/i.test(t); return; }
+      if (!inBB) return;
+      if (t.indexOf('|') < 0) return;
+      var parts = t.replace(/^\||\|$/g,'').split('|').map(function(s){return s.trim().replace(/\*\*/g,'');});
+      var ptsIdx = -1;
+      for (var i=0;i<parts.length;i++){if(/^[\d.]+\s*pts?$/i.test(parts[i])){ptsIdx=i;break;}}
+      if (ptsIdx < 0) return;
+      var name = parts.slice(0,ptsIdx).join(' ').trim();
+      if (!name) return;
+      existingNames[name.toLowerCase()] = true;
+      var pts = parseFloat(parts[ptsIdx]); if (!pts || isNaN(pts)) return;
+      // Tally totals — for cross-arch, count toward every listed portfolio
+      var ports = [];
+      CP_BB.forEach(function(b){
+        if (b['LM_TITLE'] === name && ports.indexOf(b['PXP Portfolio']) < 0) ports.push(b['PXP Portfolio']);
+      });
+      if (!ports.length) {
+        // Fallback to portfolio column
+        for (var ci=ptsIdx+1; ci<parts.length; ci++) {
+          var col = parts[ci];
+          if (col && col !== '—' && !/^Stage/i.test(col) && !/^\d+min/i.test(col) && !/^[\d.]+\s*pts?/i.test(col)) {
+            col.split('+').forEach(function(p){var pp=p.trim().replace(/^\[|\]$/g,'');if(pp&&ports.indexOf(pp)<0)ports.push(pp);});
+            break;
+          }
+        }
+      }
+      ports.forEach(function(p){ totals[p] = (totals[p]||0) + pts; });
+      // Track stage progress
+      var sm = name.match(/Stage\s*(\d)/i);
+      if (sm) {
+        var trackBase = name.replace(/\s*-?\s*Stage\s*\d+.*/i,'').replace(/[-\s]+/g,' ').trim().toLowerCase();
+        if (!planned[trackBase]) planned[trackBase] = {};
+        planned[trackBase][parseInt(sm[1])] = true;
+      }
+    });
+    // Also seed planned with bb completions already done by employees
+    if (typeof bbEmployees !== 'undefined') {
+      Object.keys(bbEmployees).forEach(function(empName){
+        var emp = bbEmployees[empName]; if (!emp || !emp.completions) return;
+        emp.completions.forEach(function(c){
+          var sm = c.name && c.name.match(/Stage\s*(\d)/i); if (!sm) return;
+          var tb = c.name.replace(/\s*-?\s*Stage\s*\d+.*/i,'').replace(/[-\s]+/g,' ').trim().toLowerCase();
+          if (!planned[tb]) planned[tb] = {};
+          planned[tb][parseInt(sm[1])] = true;
+        });
+      });
+    }
+    return {totals:totals, planned:planned, existingNames:existingNames};
+  }
+
+  function unmetPortfolios(totals) {
+    return Object.keys(bbTargets).filter(function(p){return (bbTargets[p]||0) > 0 && (totals[p]||0) < bbTargets[p];});
+  }
+
+  function stagePrereqOk(item, planned) {
+    var stage = item.STAGE; var n = stage && parseInt((stage.match(/(\d)/)||[])[1]);
+    if (!n || n<=1) return true;
+    var tb = (item['LM_TITLE']||'').replace(/\s*-?\s*Stage\s*\d+.*/i,'').replace(/[-\s]+/g,' ').trim().toLowerCase();
+    var stages = planned[tb] || {};
+    if (n === 2) return !!stages[1];
+    if (n === 3) return !!stages[1] && !!stages[2];
+    return true;
+  }
+
+  // Score: lower = better. Cross-arch helping more unmet portfolios scores best, then shortest duration.
+  function scoreItem(item, unmet) {
+    var portsCovered = (item.AllPortfolios && item.AllPortfolios.length) ? item.AllPortfolios : [item['PXP Portfolio']];
+    var unmetHits = portsCovered.filter(function(p){return unmet.indexOf(p)>=0;}).length;
+    if (!unmetHits) return Infinity;
+    var dur = (typeof item.Duration === 'number' && item.Duration > 0) ? item.Duration : 9999;
+    // Prefer cross-arch (more unmet hits), then shortest duration. Stage 1 small bias.
+    var stagePenalty = item.STAGE === 'Stage 1' ? 0 : (item.STAGE === 'Stage 2' ? 50 : 100);
+    return -unmetHits*100000 + dur + stagePenalty;
+  }
+
+  // Extract one BB section header from the existing plan for our appended rows; if absent, build one.
+  function findBBSectionEnd(lines) {
+    var inBB = false, lastBBRow = -1;
+    for (var i=0;i<lines.length;i++) {
+      var t = lines[i].trim();
+      if (/^\*{1,2}[^*]/.test(t)) { inBB = /black.?belt/i.test(t); continue; }
+      if (inBB && t.indexOf('|') >= 0) lastBBRow = i;
+      else if (!inBB && lastBBRow >= 0) break; // moved past BB into another section
+    }
+    return lastBBRow;
+  }
+
+  var planLines = planText.split('\n');
+  var added = 0, MAX_ADD = 30;
+
+  while (added < MAX_ADD) {
+    var state = parsePlan(planLines.join('\n'));
+    var unmet = unmetPortfolios(state.totals);
+    if (!unmet.length) break;
+
+    // Find best candidate
+    var best = null, bestScore = Infinity;
+    for (var i=0;i<CP_BB.length;i++) {
+      var b = CP_BB[i];
+      if (state.existingNames[(b['LM_TITLE']||'').toLowerCase()]) continue;
+      if (!trackHasEligibleRole(b['TRACK'])) continue;
+      if (!stagePrereqOk(b, state.planned)) continue;
+      var ports = (b.AllPortfolios && b.AllPortfolios.length) ? b.AllPortfolios : [b['PXP Portfolio']];
+      if (!ports.some(function(p){return unmet.indexOf(p)>=0;})) continue;
+      var s = scoreItem(b, unmet);
+      if (s < bestScore) { bestScore = s; best = b; }
+    }
+    if (!best) break;
+
+    var dur = (typeof best.Duration === 'number' && best.Duration > 0) ? (best.Duration + 'min') : '—';
+    var ports = (best.AllPortfolios && best.AllPortfolios.length) ? best.AllPortfolios : [best['PXP Portfolio']];
+    var newRow = '| ' + best['LM_TITLE'] + ' | ' + best['PVI Mulitiplier'] + ' pts | ' + best.STAGE + ' | ' + dur + ' | ' + ports.join(' + ') + ' | TBD |';
+
+    // Insert at end of BB section (or append at end)
+    var insertIdx = findBBSectionEnd(planLines);
+    if (insertIdx >= 0) planLines.splice(insertIdx+1, 0, newRow);
+    else planLines.push(newRow);
+    added++;
+  }
+
+  return planLines.join('\n');
 }
 
 function cpFormatPlan(raw){
@@ -3645,9 +3815,17 @@ function cpRunManualPlan(){
     console.log('[Manual] After stage check:', stageOk.substring(0,400));
     var filtered=cpFilterByTargets(stageOk,bbTargets,certTargets);
     console.log('[Manual] After target filter:', filtered.substring(0,400));
+    // Top-up: if any BB portfolio is still under target, append rows from CP_BB until met
+    var toppedUp=cpTopUpBBPlan(filtered,bbTargets,focusUsers);
+    if (toppedUp !== filtered) {
+      console.log('[Manual] After top-up (added rows):', toppedUp.substring(0,400));
+      // Re-run role assignment so any newly-added 'TBD' rows get a real assignee
+      // onlyTBD=true preserves existing Shawn/Kausar/etc assignments
+      toppedUp = cpReassignByRole(toppedUp, focusUsers, true);
+    }
     console.log('[Manual] bbTargets:', JSON.stringify(bbTargets), 'certTargets:', JSON.stringify(certTargets));
-    var summary=cpBuildPortfolioSummary(filtered,bbTargets,certTargets);
-    body.innerHTML=summary+cpFormatPlan(filtered);
+    var summary=cpBuildPortfolioSummary(toppedUp,bbTargets,certTargets);
+    body.innerHTML=summary+cpFormatPlan(toppedUp);
     document.getElementById('cp-print-btn').style.display='';
     document.getElementById('cp-email-btn').style.display='';
     if(btn){btn.disabled=false;btn.innerHTML='<span>&#10022;</span> Regenerate Plan';}
