@@ -1971,6 +1971,28 @@ function cpReassignByRole(rawText, focusUsers, onlyTBD) {
   var minutes = {};
   allPeople.forEach(function(n){minutes[n]=0;});
 
+  // Track stage-stickiness: which person already owns each base track in
+  // this plan. Once Stage 1 of a track is assigned to a person, all later
+  // stages of the same track go to that same person.
+  var trackOwner = {}; // base track lowercased -> person name
+
+  // Seed from existing completions: if a focus user has already completed
+  // Stage 1/2 of a track in a prior period, the next stage in the plan
+  // should be assigned to that same person.
+  if (typeof bbEmployees !== 'undefined' && bbEmployees) {
+    allPeople.forEach(function(empName){
+      var emp = bbEmployees[empName];
+      if (!emp || !emp.completions) return;
+      emp.completions.forEach(function(c){
+        if (!c.name) return;
+        var sm = c.name.match(/Stage\s*(\d)/i);
+        if (!sm) return;
+        var tb = c.name.replace(/\s*-?\s*Stage\s*\d+.*/i,'').replace(/[-\s]+/g,' ').trim().toLowerCase();
+        if (tb && !trackOwner[tb]) trackOwner[tb] = empName;
+      });
+    });
+  }
+
   function pickFromPool(pool, dur) {
     if (!pool.length) return null;
     // Pick the person in this pool with the fewest total minutes so far.
@@ -2028,10 +2050,26 @@ function cpReassignByRole(rawText, focusUsers, onlyTBD) {
       if (allPeople.indexOf(currentAssignee) >= 0) {
         minutes[currentAssignee] = (minutes[currentAssignee]||0) + (dur||0);
       }
+      // Remember which person owns this track (for stage-stickiness on later rows)
+      var tb0 = name.replace(/\s*-?\s*Stage\s*\d+.*/i,'').replace(/[-\s]+/g,' ').trim().toLowerCase();
+      if (tb0 && allPeople.indexOf(currentAssignee) >= 0) trackOwner[tb0] = currentAssignee;
       return line;
     }
-    var assignee = pickFor(track, dur);
+    // STAGE STICKINESS: if an earlier stage of the same track was already
+    // assigned in this plan, the next stages must go to the SAME person.
+    // (You can't have Stage 1 done by one person and Stage 2 by another —
+    // stages are per-person learning progressions.)
+    var trackBase = name.replace(/\s*-?\s*Stage\s*\d+.*/i,'').replace(/[-\s]+/g,' ').trim().toLowerCase();
+    var stickyOwner = trackBase ? trackOwner[trackBase] : null;
+    var assignee;
+    if (stickyOwner && allPeople.indexOf(stickyOwner) >= 0) {
+      assignee = stickyOwner;
+      minutes[stickyOwner] = (minutes[stickyOwner]||0) + (dur||0);
+    } else {
+      assignee = pickFor(track, dur);
+    }
     if (assignee === null) return null;
+    if (trackBase) trackOwner[trackBase] = assignee;
     parts[parts.length-1] = assignee;
     return '| '+parts.join(' | ')+' |';
   }).filter(function(l){return l !== null;}).join('\n');
