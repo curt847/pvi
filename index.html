@@ -1943,6 +1943,65 @@ function cpReassignToQualified(rawText, qualifiedList) {
   }).join('\n');
 }
 
+// ── ROLE-AWARE REASSIGNMENT ──────────────────────────────────────────────────
+// For Manual Cert Plan: respects each user's Sales/Technical role and routes
+// each training to a role-eligible person, balancing assignments within role.
+function cpReassignByRole(rawText, focusUsers) {
+  if (!focusUsers || !focusUsers.length) return rawText;
+  var salesPeople = focusUsers.filter(function(u){return u.role==='Sales';}).map(function(u){return u.name;});
+  var techPeople  = focusUsers.filter(function(u){return u.role==='Technical';}).map(function(u){return u.name;});
+  var allPeople   = focusUsers.map(function(u){return u.name;});
+
+  // Build a map: training name (lowercased, trimmed) -> TRACK from CP_BB
+  var trackByName = {};
+  if (typeof CP_BB !== 'undefined' && CP_BB && CP_BB.length) {
+    CP_BB.forEach(function(b){
+      var k = (b['LM_TITLE']||'').trim().toLowerCase();
+      if (k && !trackByName[k]) trackByName[k] = b['TRACK']||'';
+    });
+  }
+
+  // Counters to balance load within each role pool
+  var salesIdx = 0, techIdx = 0, anyIdx = 0;
+
+  function pickFor(track) {
+    var t = (track||'').toLowerCase();
+    var isSales = /sales|pre.?sales|presales|marketeer|business/.test(t) && !/deployment|support|engineer/.test(t);
+    var isTech  = /deployment|support|\bse\b|technical|engineer|operations|\bcx\b/.test(t);
+    // exact 'sales' is sales-only (not pre-sales which already matched above)
+    if (/^sales$/i.test(track||'')) isSales = true;
+    if (isSales && !isTech) {
+      if (salesPeople.length) return salesPeople[(salesIdx++) % salesPeople.length];
+      // no Sales person — skip the row by returning null
+      return null;
+    }
+    if (isTech && !isSales) {
+      if (techPeople.length) return techPeople[(techIdx++) % techPeople.length];
+      return null;
+    }
+    // Neutral / unknown / both — round-robin everyone
+    if (allPeople.length) return allPeople[(anyIdx++) % allPeople.length];
+    return null;
+  }
+
+  return rawText.split('\n').map(function(line) {
+    if (line.indexOf('|') < 0) return line;
+    var parts = line.replace(/^\||\|$/g,'').split('|').map(function(s){return s.trim();});
+    if (parts.length < 2) return line;
+    var hasPts = parts.some(function(p){return /^[\d.]+\s*pts?$/i.test(p);});
+    if (!hasPts) return line;
+    // Find pts index → name = everything before it
+    var ptsIdx = -1;
+    for (var i=0;i<parts.length;i++){if(/^[\d.]+\s*pts?$/i.test(parts[i])){ptsIdx=i;break;}}
+    var name = ptsIdx>0 ? parts.slice(0,ptsIdx).join(' ').trim() : parts[0];
+    var track = trackByName[name.toLowerCase()] || '';
+    var assignee = pickFor(track);
+    if (assignee === null) return null; // mark this row for removal — no eligible person
+    parts[parts.length-1] = assignee;
+    return '| '+parts.join(' | ')+' |';
+  }).filter(function(l){return l !== null;}).join('\n');
+}
+
 // ── STAGE PREREQUISITE ENFORCER ──────────────────────────────────────────────
 // Remove Stage 2 rows where Stage 1 isn't recommended (or already completed by that employee)
 // Remove Stage 3 rows where Stage 1 AND Stage 2 aren't both present
@@ -3495,7 +3554,8 @@ function cpRunManualPlan(){
   var prompt='Output ONLY the pipe-delimited plan. No prose, no summaries, no per-person headers. '
     +'Every line must be EXACTLY one of: a **Section Header**, ELIGIBLE CANDIDATES: ..., LEVEL: ..., a |pipe|row|, or TOTAL BB/CERT PTS NEEDED: X. Nothing else.\n\n'
     +'TARGETS — track EACH PORTFOLIO independently. Count cross-arch items toward every portfolio they list. '
-    +'Once a portfolio running total >= its target, output NO MORE rows for that portfolio (even cross-arch ones):\n'
+    +'KEEP ADDING ROWS UNTIL EVERY PORTFOLIO RUNNING TOTAL >= ITS TARGET. Do NOT stop early. Do NOT stop short. '
+    +'Once a portfolio running total >= its target, output NO MORE rows that ONLY benefit that portfolio (cross-arch items still allowed if another portfolio is unmet):\n'
     +targBlock+'\n'
     +'EMPLOYEES:\n'+empRoleLines+'\n\n'
     +'ROLE RULES (zero exceptions):\n'
@@ -3507,14 +3567,15 @@ function cpRunManualPlan(){
     +'- Only recommend Stage 2 of a track if Stage 1 of that SAME track is also included in this plan.\n'
     +'- Only recommend Stage 3 of a track if BOTH Stage 1 AND Stage 2 of that same track are also included in this plan.\n'
     +'- "Same track" means same base training name, e.g. "Black Belt Cisco Spaces Presales" Stages 1/2/3 are one track.\n\n'
-    +'BB PRIORITY: 1) Cross-arch first 2) Shortest duration — strongly prefer ≤120min trainings but include longer ones when no short option exists for that portfolio 3) Sequential stages in same track 4) Stage 1 for standalones.\n'
+    +'BB PRIORITY (apply in this exact order): 1) Cross-arch first when it helps multiple unmet targets 2) SHORTEST duration available — always pick the shortest training that contributes to an unmet portfolio target before any longer one 3) Sequential stages in same track 4) Stage 1 for standalones.\n'
     +'CERT PRIORITY: 1) Cross-arch first 2) Associate before Professional.\n\n'
-    +'BB REFERENCE:\n'+bbRef+'\n\n'
+    +'BB REFERENCE (already sorted: cross-arch first, then by shortest duration — prefer items near the top):\n'+bbRef+'\n\n'
     +(certRef?'CERT REFERENCE:\n'+certRef+'\n\n':'')
     +'ROW FORMAT: | Training Name | X pts | Stage N or Level | Duration | Portfolio(s) | Assignee |\n\n'
     +'OUTPUT STRUCTURE — ONE unified Black Belt section for all portfolios combined. Separate Cert section if needed.\n'
     +'Order: cross-arch items first (highest portfolio coverage first), then single-portfolio items, shortest duration first.\n'
-    +'DO NOT create one section per portfolio. DO NOT create per-person sub-sections.\n\n'
+    +'DO NOT create one section per portfolio. DO NOT create per-person sub-sections.\n'
+    +'BEFORE STOPPING: mentally sum your rows per portfolio. If any portfolio total is below its target, ADD MORE ROWS until it is met.\n\n'
     +'** Black Belt Plan\n'
     +'ELIGIBLE CANDIDATES: '+eligibleStr+'\n'
     +'| Black Belt One Cisco Sales Stage 1 (Oct 2025) | 1 pts | Stage 1 | 36min | Cloud + AI Infrastructure + Collaboration + Networking + Security | '+exampleSales+' |\n'
@@ -3535,12 +3596,12 @@ function cpRunManualPlan(){
     method:'POST',
     headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
     body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:4000,
-      system:'You are a Cisco 360 Partner Program expert. Output ONLY the plan rows. NEVER create per-person sub-sections — one section per portfolio only. NEVER output prose, summaries, or reasoning. Every line must be: **Section Header, ELIGIBLE CANDIDATES:, LEVEL:, |pipe|row|, or TOTAL line. If it is not one of these, do not write it.',
+      system:'You are a Cisco 360 Partner Program expert. Output ONLY the plan rows. Rules: (1) Keep adding rows until EVERY portfolio running total reaches its target — never stop early, never stop short of the target. (2) NEVER create per-person sub-sections — one unified Black Belt section only. (3) NEVER output prose, summaries, or reasoning. (4) Every line must be: **Section Header, ELIGIBLE CANDIDATES:, LEVEL:, |pipe|row|, or TOTAL line. If it is not one of these, do not write it. (5) Pick the SHORTEST-duration trainings first that count toward an unmet target — duration ties broken by cross-arch first, then Stage 1 before Stage 2/3.',
       messages:[{role:'user',content:prompt}]})
   }).then(function(r){return r.json();}).then(function(data){
     if(data.error)throw new Error(data.error.type+': '+data.error.message);
     console.log('[Manual] Raw AI:', data.content[0].text.substring(0,600));
-    var manReassigned=cpReassignToQualified(data.content[0].text,focusUsers.map(function(u){return u.name;}));
+    var manReassigned=cpReassignByRole(data.content[0].text,focusUsers);
     console.log('[Manual] After reassign:', manReassigned.substring(0,400));
     var stageOk=cpEnforceStagePrerequisites(manReassigned);
     console.log('[Manual] After stage check:', stageOk.substring(0,400));
