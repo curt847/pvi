@@ -1945,43 +1945,58 @@ function cpReassignToQualified(rawText, qualifiedList) {
 
 // ── ROLE-AWARE REASSIGNMENT ──────────────────────────────────────────────────
 // For Manual Cert Plan: respects each user's Sales/Technical role and routes
-// each training to a role-eligible person, balancing assignments within role.
+// each training to a role-eligible person. Within each role pool, balances by
+// TOTAL MINUTES assigned so far (not just count) so a person with one 400-min
+// training doesn't keep getting more on top of someone with three 5-min ones.
 function cpReassignByRole(rawText, focusUsers) {
   if (!focusUsers || !focusUsers.length) return rawText;
   var salesPeople = focusUsers.filter(function(u){return u.role==='Sales';}).map(function(u){return u.name;});
   var techPeople  = focusUsers.filter(function(u){return u.role==='Technical';}).map(function(u){return u.name;});
   var allPeople   = focusUsers.map(function(u){return u.name;});
 
-  // Build a map: training name (lowercased, trimmed) -> TRACK from CP_BB
+  // Build maps: training name (lowercased, trimmed) -> TRACK / Duration from CP_BB
   var trackByName = {};
+  var durByName = {};
   if (typeof CP_BB !== 'undefined' && CP_BB && CP_BB.length) {
     CP_BB.forEach(function(b){
       var k = (b['LM_TITLE']||'').trim().toLowerCase();
       if (k && !trackByName[k]) trackByName[k] = b['TRACK']||'';
+      if (k && durByName[k] == null) durByName[k] = (typeof b.Duration==='number'?b.Duration:0);
     });
   }
 
-  // Counters to balance load within each role pool
-  var salesIdx = 0, techIdx = 0, anyIdx = 0;
+  // Per-person minute totals — minute-aware load balancing
+  var minutes = {};
+  allPeople.forEach(function(n){minutes[n]=0;});
 
-  function pickFor(track) {
+  function pickFromPool(pool, dur) {
+    if (!pool.length) return null;
+    // Pick the person in this pool with the fewest total minutes so far.
+    // Tie-break by appearance order in the pool (stable).
+    var best = pool[0];
+    for (var i=1;i<pool.length;i++){
+      if (minutes[pool[i]] < minutes[best]) best = pool[i];
+    }
+    minutes[best] += (dur||0);
+    return best;
+  }
+
+  function pickFor(track, dur) {
     var t = (track||'').toLowerCase();
     var isSales = /sales|pre.?sales|presales|marketeer|business/.test(t) && !/deployment|support|engineer/.test(t);
     var isTech  = /deployment|support|\bse\b|technical|engineer|operations|\bcx\b/.test(t);
-    // exact 'sales' is sales-only (not pre-sales which already matched above)
     if (/^sales$/i.test(track||'')) isSales = true;
-    if (isSales && !isTech) {
-      if (salesPeople.length) return salesPeople[(salesIdx++) % salesPeople.length];
-      // no Sales person — skip the row by returning null
-      return null;
+    if (isSales && !isTech) return pickFromPool(salesPeople, dur);
+    if (isTech && !isSales) return pickFromPool(techPeople, dur);
+    // Neutral / unknown / both — pick from the role pool with fewer total minutes
+    var salesTotal = salesPeople.reduce(function(s,n){return s+minutes[n];},0);
+    var techTotal  = techPeople.reduce(function(s,n){return s+minutes[n];},0);
+    if (salesPeople.length && techPeople.length) {
+      return salesTotal <= techTotal ? pickFromPool(salesPeople, dur) : pickFromPool(techPeople, dur);
     }
-    if (isTech && !isSales) {
-      if (techPeople.length) return techPeople[(techIdx++) % techPeople.length];
-      return null;
-    }
-    // Neutral / unknown / both — round-robin everyone
-    if (allPeople.length) return allPeople[(anyIdx++) % allPeople.length];
-    return null;
+    if (salesPeople.length) return pickFromPool(salesPeople, dur);
+    if (techPeople.length) return pickFromPool(techPeople, dur);
+    return pickFromPool(allPeople, dur);
   }
 
   return rawText.split('\n').map(function(line) {
@@ -1990,13 +2005,21 @@ function cpReassignByRole(rawText, focusUsers) {
     if (parts.length < 2) return line;
     var hasPts = parts.some(function(p){return /^[\d.]+\s*pts?$/i.test(p);});
     if (!hasPts) return line;
-    // Find pts index → name = everything before it
     var ptsIdx = -1;
     for (var i=0;i<parts.length;i++){if(/^[\d.]+\s*pts?$/i.test(parts[i])){ptsIdx=i;break;}}
     var name = ptsIdx>0 ? parts.slice(0,ptsIdx).join(' ').trim() : parts[0];
-    var track = trackByName[name.toLowerCase()] || '';
-    var assignee = pickFor(track);
-    if (assignee === null) return null; // mark this row for removal — no eligible person
+    var nameKey = name.toLowerCase();
+    var track = trackByName[nameKey] || '';
+    var dur   = durByName[nameKey] || 0;
+    // Fallback: try to parse duration from the row itself ("33min", "2h 15m")
+    if (!dur) {
+      for (var j=0;j<parts.length;j++){
+        var m = parts[j].match(/^(\d+)\s*min$/i);
+        if (m) { dur = parseInt(m[1]); break; }
+      }
+    }
+    var assignee = pickFor(track, dur);
+    if (assignee === null) return null;
     parts[parts.length-1] = assignee;
     return '| '+parts.join(' | ')+' |';
   }).filter(function(l){return l !== null;}).join('\n');
@@ -3551,10 +3574,17 @@ function cpRunManualPlan(){
   // Employee lines — omit current pts summary to prevent AI outputting it
   var empRoleLines=focusUsers.map(function(u){return u.name+' | '+u.role;}).join('\n');
 
+  // Compute pts each role can/should contribute. We want roughly equal MINUTES per role.
+  var hasSalesRole = focusUsers.some(function(u){return u.role==='Sales';});
+  var hasTechRole  = focusUsers.some(function(u){return u.role==='Technical';});
+  var bothRoles    = hasSalesRole && hasTechRole;
+  var totalBBPtsTarget = Object.keys(bbTargets).reduce(function(s,k){return s+(bbTargets[k]||0);},0);
+
   var prompt='Output ONLY the pipe-delimited plan. No prose, no summaries, no per-person headers. '
     +'Every line must be EXACTLY one of: a **Section Header**, ELIGIBLE CANDIDATES: ..., LEVEL: ..., a |pipe|row|, or TOTAL BB/CERT PTS NEEDED: X. Nothing else.\n\n'
     +'TARGETS — track EACH PORTFOLIO independently. Count cross-arch items toward every portfolio they list. '
     +'KEEP ADDING ROWS UNTIL EVERY PORTFOLIO RUNNING TOTAL >= ITS TARGET. Do NOT stop early. Do NOT stop short. '
+    +'It is BETTER to overshoot a target by 1-2 pts than to undershoot. '
     +'Once a portfolio running total >= its target, output NO MORE rows that ONLY benefit that portfolio (cross-arch items still allowed if another portfolio is unmet):\n'
     +targBlock+'\n'
     +'EMPLOYEES:\n'+empRoleLines+'\n\n'
@@ -3563,11 +3593,18 @@ function cpRunManualPlan(){
     +(techNames?'- '+techNames+' (Technical): ONLY assign trainings with Deployment/Support/SE/Technical in the track. Never assign to Sales/Pre-Sales tracks.\n':'')
     +'- If a track type has no eligible employee, DO NOT include that training in the plan at all.\n'
     +'- Never use N/A as an assignee — if no one is eligible for a training, skip it entirely.\n\n'
+    +(bothRoles?'WORKLOAD BALANCE (critical with mixed Sales+Tech team):\n'
+      +'- The plan MUST give meaningful work to BOTH role types. Do not pile everything on one person because their tracks happen to be shorter.\n'
+      +'- Aim for ROUGHLY EQUAL TOTAL MINUTES across the Sales pool and the Tech pool. Equal minutes matters more than equal training counts.\n'
+      +'- For each portfolio, intentionally include BOTH a Sales/Pre-Sales track item AND a Deployment/Support track item when both are available.\n'
+      +'- A reasonable Tech-track training (e.g. 200-400min Deployment) is preferred over a 5-min Sales-track item once the Sales pool already has more total minutes.\n\n':'')
     +'STAGE PREREQUISITE RULE (critical):\n'
     +'- Only recommend Stage 2 of a track if Stage 1 of that SAME track is also included in this plan.\n'
     +'- Only recommend Stage 3 of a track if BOTH Stage 1 AND Stage 2 of that same track are also included in this plan.\n'
     +'- "Same track" means same base training name, e.g. "Black Belt Cisco Spaces Presales" Stages 1/2/3 are one track.\n\n'
-    +'BB PRIORITY (apply in this exact order): 1) Cross-arch first when it helps multiple unmet targets 2) SHORTEST duration available — always pick the shortest training that contributes to an unmet portfolio target before any longer one 3) Sequential stages in same track 4) Stage 1 for standalones.\n'
+    +'BB PRIORITY (apply in this exact order): 1) Cross-arch first when it helps multiple unmet targets 2) SHORTEST duration available — always pick the shortest training that contributes to an unmet portfolio target before any longer one '
+    +(bothRoles?'(BUT: if one role pool already has materially more total minutes than the other, switch to picking from the under-loaded role pool even if its shortest option is longer) ':'')
+    +'3) Sequential stages in same track 4) Stage 1 for standalones.\n'
     +'CERT PRIORITY: 1) Cross-arch first 2) Associate before Professional.\n\n'
     +'BB REFERENCE (already sorted: cross-arch first, then by shortest duration — prefer items near the top):\n'+bbRef+'\n\n'
     +(certRef?'CERT REFERENCE:\n'+certRef+'\n\n':'')
@@ -3575,7 +3612,8 @@ function cpRunManualPlan(){
     +'OUTPUT STRUCTURE — ONE unified Black Belt section for all portfolios combined. Separate Cert section if needed.\n'
     +'Order: cross-arch items first (highest portfolio coverage first), then single-portfolio items, shortest duration first.\n'
     +'DO NOT create one section per portfolio. DO NOT create per-person sub-sections.\n'
-    +'BEFORE STOPPING: mentally sum your rows per portfolio. If any portfolio total is below its target, ADD MORE ROWS until it is met.\n\n'
+    +'BEFORE STOPPING: mentally sum your rows per portfolio. If any portfolio total is below its target, ADD MORE ROWS until it is met. '
+    +(bothRoles?'Then check: does each role pool have at least some work? If one role has zero or near-zero minutes, swap in trainings from that role.\n\n':'\n\n')
     +'** Black Belt Plan\n'
     +'ELIGIBLE CANDIDATES: '+eligibleStr+'\n'
     +'| Black Belt One Cisco Sales Stage 1 (Oct 2025) | 1 pts | Stage 1 | 36min | Cloud + AI Infrastructure + Collaboration + Networking + Security | '+exampleSales+' |\n'
