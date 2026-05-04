@@ -24,6 +24,8 @@ The two apps' state is independent. PVI uses top-level vars (`allRows`, `months`
 
 The Cert Planner calls `https://api.anthropic.com/v1/messages` **directly from the browser** with the user's key, using the `anthropic-dangerous-direct-browser-access: true` header to bypass the SDK's same-origin guard. The key is read from a UI input (`#cp-api-key`) and persisted to `localStorage['pvi_api_key']`. There is no server-side proxy.
 
+**This is intentional and not a bug.** PVI is personal-use only — Curt enters his own Anthropic key. There is no plan to roll it out to Cisco partners under the current funding model (no corporate Anthropic key available). Don't re-propose adding a server-side proxy unless the user mentions a corporate key or specific partners they want to onboard. If/when that changes, the rollwatch proxy pattern (`PropertiesService` + auth + per-user rate limit + daily total cap) is the template.
+
 Models in use:
 - `claude-haiku-4-5-20251001` — only for the "Test Key" round-trip (cheap)
 - `claude-sonnet-4-6` — actual plan generation (three call sites: `~2796`, `~3571`, `~3845`)
