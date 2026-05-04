@@ -1,0 +1,17 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*~
+
+# Claude Code
+.claude/
+
+# clasp / Apps Script auth tokens (must never be committed)
+.clasprc.json
+creds.json
+*.credentials.json
